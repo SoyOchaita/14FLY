@@ -3,24 +3,36 @@
 
 	<!-- Selección básica -->
 		<div class="neo-card p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-start md:items-center">
-			<select [(ngModel)]="tipo" (ngModelChange)="onTipoChange()" name="tipo" class="input-neo !w-auto">
-			<option value="business">Clase de Negocios</option>
-			<option value="economy">Clase Económica</option>
-		</select>
-			<input type="number" [(ngModel)]="cantidad" (ngModelChange)="syncPassengersWithQuantity()" name="cantidad" min="1" [attr.max]="maxCantidad" class="input-neo !w-28" placeholder="Cantidad" />
-			<select [(ngModel)]="seleccionMode" (ngModelChange)="onModeChange()" name="mode" class="input-neo !w-auto">
-				<option value="manual">Selección manual</option>
-				<option value="random">Aleatorio</option>
-			</select>
-			<div class="flex gap-3 items-center">
-				<button type="button" (click)="cargarMapa()" [disabled]="loading" class="btn-accent">Actualizar mapa</button>
-				<button *ngIf="seleccionMode==='manual'" type="button" (click)="seleccionarAleatorio()" [disabled]="loading || seleccionados.length>=cantidad" class="px-4 py-3 rounded-xl bg-softblue text-dark hover:opacity-90">Aleatorio</button>
+			<!-- Selector de clase con segmento de botones -->
+			<div class="inline-flex bg-white/5 rounded-xl p-1 border border-white/10">
+				<button type="button"
+					[class]="'px-4 py-2 rounded-lg text-sm font-medium transition ' + (tipo==='business' ? 'bg-softblue text-dark shadow' : 'text-softblue hover:bg-white/10')"
+					(click)="setTipo('business')">
+					<span class="mr-1">🏢</span> Negocios
+				</button>
+				<button type="button"
+					[class]="'ml-1 px-4 py-2 rounded-lg text-sm font-medium transition ' + (tipo==='economy' ? 'bg-softblue text-dark shadow' : 'text-softblue hover:bg-white/10')"
+					(click)="setTipo('economy')">
+					<span class="mr-1">💺</span> Económica
+				</button>
 			</div>
+			<input type="number" [(ngModel)]="cantidad" (ngModelChange)="onCantidadChange($event)" name="cantidad" min="1" [attr.max]="availableInClass()" class="input-neo !w-28 bg-dark/40 text-white border-white/10" placeholder="Cantidad" />
+			<div class="flex gap-3 items-center col-span-2 md:col-span-1">
+				<button type="button" (click)="cargarMapa(true)" [disabled]="loading" class="btn-accent">Actualizar mapa</button>
+				<button type="button" (click)="seleccionarAleatorio()" [disabled]="loading || availableInClass()===0" class="px-4 py-3 rounded-xl bg-softblue text-dark hover:opacity-90">Aleatorio</button>
+			</div>
+
+      <div class="text-red-400 text-sm md:col-span-5" *ngIf="capExceeded">
+        No puedes seleccionar más de {{ availableInClass() }} asiento(s) disponibles en esta clase.
+      </div>
 	</div>
 
 	<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-			<div class="neo-card p-6" *ngIf="seleccionMode==='manual'; else noMap">
-				<h3 class="text-xl font-semibold text-white mb-4">Mapa de asientos</h3>
+			<div class="neo-card p-6">
+				<div class="flex items-center justify-between mb-4">
+					<h3 class="text-xl font-semibold text-white">Mapa de asientos</h3>
+					<div class="text-softblue/80 text-sm">Disponibles en {{ tipo==='business' ? 'Negocios' : 'Económica' }}: <span class="text-white font-semibold">{{ availableInClass() }}</span></div>
+				</div>
 				<!-- Diagrama de asientos con orden y rotulación por filas/columnas -->
 				<div class="space-y-3">
 					<!-- Encabezado de columnas -->
@@ -53,25 +65,42 @@
 				</div>
 				<p class="text-softblue/80 text-sm mt-3">Verde: disponible · Amarillo: seleccionado · Rojo: ocupado</p>
 			</div>
-				<ng-template #noMap>
-					<div class="neo-card p-6 text-softblue">Modo aleatorio: no es necesario seleccionar asientos manualmente. Ingresa los datos de los pasajeros y confirma.</div>
-				</ng-template>
 
 		<div class="neo-card p-6">
 			<h3 class="text-xl font-semibold text-white mb-4">Datos por asiento</h3>
-			<div *ngIf="seleccionados.length === 0 && seleccionMode==='manual'" class="text-softblue">Selecciona hasta {{ cantidad }} asiento(s).</div>
-			<div class="space-y-4" *ngFor="let s of seleccionados; let i = index">
+			<div *ngIf="seleccionados.length === 0" class="text-softblue">Selecciona asientos en el mapa y completa los datos aquí.</div>
+			<div *ngIf="seleccionados.length > 0" class="space-y-4">
+				<!-- Lista de asientos como chips navegables -->
+				<div class="flex gap-2 overflow-x-auto pb-2">
+					<button type="button" *ngFor="let s of seleccionados; let i = index"
+						(click)="setActiveSeat(i)"
+						[class]="'whitespace-nowrap px-3 py-2 rounded-full text-sm border transition ' + (i===activeSeatIndex ? 'bg-softblue text-dark border-softblue' : 'bg-white/5 text-softblue border-white/10 hover:bg-white/10')">
+						<span class="font-mono mr-1">{{ s.code }}</span>
+						<span *ngIf="passengerIsValid(s)" class="text-emerald-400">✔</span>
+						<span *ngIf="!passengerIsValid(s)" class="text-red-400">•</span>
+					</button>
+				</div>
+
+				<!-- Panel de edición para el asiento activo -->
 				<div class="p-4 rounded-lg bg-dark/30">
-					<div class="text-softblue mb-2">Asiento <span class="text-white font-semibold">{{ s.code }}</span></div>
-					<input placeholder="Nombre completo" class="input-neo w-full mb-2" [(ngModel)]="s.full_name" name="full_name_{{i}}" />
-					<input placeholder="CUI (13 dígitos)" inputmode="numeric" class="input-neo w-full mb-2" [(ngModel)]="s.cui" name="cui_{{i}}" />
-					<div class="text-xs text-red-400" *ngIf="!passengerIsValid(s)">
+					<div class="flex items-center justify-between mb-3">
+						<div class="text-softblue">Asiento <span class="text-white font-semibold">{{ activeSeat.code }}</span></div>
+						<div class="text-xs text-softblue/70">{{ activeSeatIndex + 1 }} de {{ seleccionados.length }}</div>
+					</div>
+					<input placeholder="Nombre completo" class="input-neo w-full mb-2" [(ngModel)]="activeSeat.full_name" name="full_name_{{activeSeatIndex}}" />
+					<input placeholder="CUI (13 dígitos)" inputmode="numeric" class="input-neo w-full mb-2" [(ngModel)]="activeSeat.cui" name="cui_{{activeSeatIndex}}" />
+					<div class="text-xs text-red-400" *ngIf="activeSeat && !passengerIsValid(activeSeat)">
 						Ingresa nombre y CUI válido (13 dígitos).
 					</div>
 					<label class="inline-flex items-center gap-2 text-softblue">
-						<input type="checkbox" [(ngModel)]="s.has_bag" name="bag_{{i}}" />
+						<input type="checkbox" [(ngModel)]="activeSeat.has_bag" name="bag_{{activeSeatIndex}}" />
 						¿Incluye maleta?
 					</label>
+					<div class="flex justify-between mt-4">
+						<button type="button" class="px-3 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="setActiveSeatPrev()" [disabled]="activeSeatIndex===0">Anterior</button>
+						<button type="button" class="px-3 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="setActiveSeatNext()" [disabled]="activeSeatIndex===seleccionados.length-1">Siguiente</button>
+					</div>
+					<p class="mt-2 text-xs text-softblue/70">Para cambiar el asiento, usa el mapa.</p>
 				</div>
 			</div>
 
@@ -79,3 +108,28 @@
 		</div>
 	</div>
 </section>
+
+<!-- Modal selección aleatoria -->
+<div *ngIf="showRandomModal" class="fixed inset-0 z-50 flex items-center justify-center">
+	<div class="absolute inset-0 bg-black/60" (click)="closeRandomModal()"></div>
+	<div class="relative neo-card p-6 w-full max-w-sm">
+			<h4 class="text-lg font-semibold text-white mb-3">Seleccionar asientos aleatorios</h4>
+			<div class="flex items-center justify-between mb-2 text-softblue">
+				<p>Clase: <span class="text-white">{{ tipo==='business' ? 'Negocios' : 'Económica' }}</span></p>
+				<p>Disponibles: <span class="text-white font-semibold">{{ availableInClass() }}</span></p>
+			</div>
+			<div class="flex items-center gap-3 mb-4">
+				<button class="px-3 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="modalDecrement()">-</button>
+				<input type="number" [(ngModel)]="modalQuantity" (ngModelChange)="onModalQtyChange($event)" name="modalQty" min="1" [attr.max]="availableInClass()" class="input-neo w-24 text-center bg-dark/40 text-white border-white/10" />
+				<button class="px-3 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="modalIncrement()">+</button>
+				<button class="ml-auto px-3 py-2 rounded-lg bg-softblue/20 text-softblue hover:bg-softblue/30" (click)="modalSetMax()">Usar máximo</button>
+			</div>
+			<div class="text-red-400 text-sm mb-2" *ngIf="modalExceeded">
+				No puedes seleccionar más de {{ availableInClass() }} asiento(s) disponibles en esta clase.
+			</div>
+			<div class="flex justify-end gap-3">
+			<button class="px-4 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="closeRandomModal()">Cancelar</button>
+			<button class="px-4 py-2 rounded-lg bg-softblue text-dark hover:opacity-90 disabled:opacity-50" [disabled]="modalExceeded || availableInClass()===0" (click)="confirmRandomModal()">Confirmar</button>
+		</div>
+	</div>
+	</div>

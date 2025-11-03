@@ -14,8 +14,6 @@ import { ToastService } from '../../ui/toast/toast.service';
 export class CrearComponent implements OnInit {
   tipo: 'business' | 'economy' = 'economy';
   cantidad = 1;
-  seleccionMode: 'manual' | 'random' = 'manual';
-  maxCantidad = 10;
   mapa: any = { business: [], economy: [] };
   private mapaIndex: { business: Map<string, any>; economy: Map<string, any> } = {
     business: new Map<string, any>(),
@@ -23,6 +21,16 @@ export class CrearComponent implements OnInit {
   };
   seleccionados: Array<{ code: string; full_name: string; cui: string; has_bag: boolean }> = [];
   loading = false;
+  // Modal para selección aleatoria
+  showRandomModal = false;
+  modalQuantity = 1;
+  modalExceeded = false;
+  // Disponibilidad por clase
+  private availableByClass: { business: number; economy: number } = { business: 0, economy: 0 };
+  // Advertencia si el usuario intenta exceder la disponibilidad
+  capExceeded = false;
+  // Navegación y edición de datos por asiento
+  activeSeatIndex = 0;
 
   constructor(private reservas: ReservasService, private toast: ToastService) {}
 
@@ -30,30 +38,45 @@ export class CrearComponent implements OnInit {
     this.cargarMapa();
   }
 
-  cargarMapa() {
+  cargarMapa(clearSelection: boolean = false) {
     this.reservas.getSeats().subscribe({
       next: (res) => {
         this.mapa = res.data || { business: [], economy: [] };
         // Construir índices por código para lookup rápido
         this.mapaIndex.business = new Map((this.mapa.business as any[]).map((s: any) => [s.code, s]));
         this.mapaIndex.economy = new Map((this.mapa.economy as any[]).map((s: any) => [s.code, s]));
-        // Limpia selección si quedaron códigos ocupados (según disponibilidad real del servidor)
-        const disponibles = new Set(
-          ((this.mapa.business as any[]).concat(this.mapa.economy)).filter((s: any) => s.available).map((s: any) => s.code)
-        );
-        this.seleccionados = this.seleccionados.filter((s) => !s.code || disponibles.has(s.code));
+        // Actualiza conteo de disponibles por clase
+        this.updateAvailableCounts();
+  // Límite máximo depende únicamente de la disponibilidad actual (sin hardcode)
+        // Limpia o depura selección según parámetro
+        if (clearSelection) {
+          this.seleccionados = [];
+          // Reiniciar cantidad a 1 tras limpiar selección para evitar desajustes
+          const max = this.availableInClass();
+          this.cantidad = (Math.min(1, max) || 1);
+        } else {
+          const disponibles = new Set(
+            ((this.mapa.business as any[]).concat(this.mapa.economy)).filter((s: any) => s.available).map((s: any) => s.code)
+          );
+          this.seleccionados = this.seleccionados.filter((s) => !s.code || disponibles.has(s.code));
+        }
+        // Ajustar cantidad a lo posible
+        if (this.cantidad > this.availableInClass()) this.cantidad = Math.max(1, this.availableInClass());
+        this.syncPassengersWithQuantity();
+        this.ensureActiveIndex();
+        this.capExceeded = false;
       },
     });
   }
 
   toggleSeleccion(seat: any) {
     if (!seat) return;
-    if (this.seleccionMode !== 'manual') return; // Mapa solo en manual
 
     const idx = this.seleccionados.findIndex((s) => s.code === seat.code);
     if (idx >= 0) {
       // Deseleccionar (no tocar disponibilidad real del asiento)
       this.seleccionados.splice(idx, 1);
+      this.ensureActiveIndex();
       return;
     }
 
@@ -62,7 +85,8 @@ export class CrearComponent implements OnInit {
     const selCount = this.seleccionados.length;
     if (selCount >= this.cantidad) {
       // Modo incremental: si el usuario sigue seleccionando, incrementa cantidad hasta el máximo
-      if (selCount < this.maxCantidad) {
+      const max = this.availableInClass();
+      if (selCount < max) {
         this.cantidad = selCount + 1;
       } else {
         return; // alcanzó el máximo permitido
@@ -70,57 +94,20 @@ export class CrearComponent implements OnInit {
     }
 
     this.seleccionados.push({ code: seat.code, full_name: '', cui: '', has_bag: false });
+    this.activeSeatIndex = this.seleccionados.length - 1;
   }
 
   seleccionarAleatorio() {
-    if (this.seleccionados.length >= this.cantidad) return;
-    this.loading = true;
-    this.reservas.getRandomSeat(this.tipo).subscribe({
-      next: (res) => {
-        const seat = res.data;
-        if (!seat) return;
-        // Marcar en el mapa si existe
-        const list = this.mapa[this.tipo] as any[];
-        const target = list.find((s) => s.code === seat.code);
-        if (target && target.available) this.toggleSeleccion(target);
-      },
-      error: () => {},
-      complete: () => (this.loading = false),
-    });
+    // Abrir modal para pedir cantidad aleatoria a seleccionar
+    this.modalQuantity = Math.min(Math.max(1, this.cantidad || 1), this.availableInClass());
+    this.showRandomModal = true;
   }
 
   reservar() {
     if (!this.canConfirm) return;
     this.loading = true;
-    if (this.seleccionMode === 'manual') {
-  if (this.seleccionados.length < this.cantidad) return this.toast.warning('Selecciona todos los asientos requeridos.');
-      const payload = { seats: this.seleccionados };
-      this.reservas.createReservation(payload).subscribe({
-        next: () => {
-          this.toast.success('Reserva completada');
-          this.seleccionados = [];
-          this.cargarMapa();
-        },
-        error: (err) => {
-          this.toast.error(err?.error?.message || 'Error al reservar');
-          this.cargarMapa();
-        },
-        complete: () => (this.loading = false),
-      });
-      return;
-    }
-
-    // Modo aleatorio: usar cantidad y tipo; seatsData con datos de pasajeros
-    if (this.seleccionados.length !== this.cantidad) {
-      // Sin selección manual, solo usamos la longitud como cantidad para recolectar datos
-      this.syncPassengersWithQuantity();
-    }
-    const payload = {
-      quantity: this.cantidad,
-      seatClass: this.tipo,
-      selectionMode: 'random',
-      seatsData: this.seleccionados.map(({ code, ...rest }) => rest),
-    };
+    if (this.seleccionados.length < this.cantidad) return this.toast.warning('Selecciona todos los asientos requeridos.');
+    const payload = { seats: this.seleccionados };
     this.reservas.createReservation(payload).subscribe({
       next: () => {
         this.toast.success('Reserva completada');
@@ -136,48 +123,29 @@ export class CrearComponent implements OnInit {
   }
 
   syncPassengersWithQuantity() {
-    // Sincroniza según el modo
-    if (this.seleccionMode === 'manual') {
-      // En manual nunca agregamos placeholders sin código; solo recortamos si sobra
-      const conCodigo = this.seleccionados.filter((s) => !!s.code);
-      if (conCodigo.length > this.cantidad) {
-        this.seleccionados = conCodigo.slice(0, this.cantidad);
-      } else {
-        this.seleccionados = conCodigo; // mantener lo seleccionado, permitir que el mapa incremente
-      }
-      return;
+    // En manual nunca agregamos placeholders sin código; solo recortamos si sobra
+    const conCodigo = this.seleccionados.filter((s) => !!s.code);
+    if (conCodigo.length > this.cantidad) {
+      this.seleccionados = conCodigo.slice(0, this.cantidad);
+    } else {
+      this.seleccionados = conCodigo; // mantener lo seleccionado, permitir que el mapa incremente
     }
-
-    // Modo aleatorio: mantener exactamente 'cantidad' filas sin código
-    const arr = this.seleccionados.map(({ full_name, cui, has_bag }) => ({ code: '', full_name, cui, has_bag }));
-    if (arr.length < this.cantidad) {
-      for (let i = arr.length; i < this.cantidad; i++) arr.push({ code: '', full_name: '', cui: '', has_bag: false });
-    } else if (arr.length > this.cantidad) {
-      arr.splice(this.cantidad);
-    }
-    this.seleccionados = arr;
   }
 
   onTipoChange() {
     // Al cambiar de clase, limpiar selección manual y ajustar pasajeros
-    if (this.seleccionMode === 'manual') {
-      this.seleccionados = [];
-    }
+    this.seleccionados = [];
+    this.activeSeatIndex = 0;
+    // Actualizar límites por disponibilidad
+    // Reiniciar cantidad a 1 para evitar quedar con cantidades altas sin selección
+    const max = this.availableInClass();
+    this.cantidad = (Math.min(1, max) || 1);
     this.syncPassengersWithQuantity();
+    this.ensureActiveIndex();
+    this.capExceeded = false;
   }
 
-  onModeChange() {
-    // Al cambiar de modo, para aleatorio no se requieren códigos
-    if (this.seleccionMode === 'random') {
-      // Mantener solo los datos de pasajero sin códigos
-      this.seleccionados = this.seleccionados.map(({ full_name, cui, has_bag }) => ({ code: '', full_name, cui, has_bag }));
-      this.syncPassengersWithQuantity();
-    } else {
-      // Volver a manual: eliminar placeholders sin código
-      this.seleccionados = this.seleccionados.filter((s) => !!s.code);
-      this.syncPassengersWithQuantity();
-    }
-  }
+  // (Eliminado cambio de modo)
 
   cuiIsValid(cui: string): boolean {
     const digits = (cui || '').replace(/\D/g, '');
@@ -189,11 +157,7 @@ export class CrearComponent implements OnInit {
   }
 
   get canConfirm(): boolean {
-    if (this.seleccionMode === 'manual') {
-      if (this.seleccionados.length !== this.cantidad) return false;
-      return this.seleccionados.every((p) => this.passengerIsValid(p));
-    }
-    // random
+    if (this.capExceeded) return false;
     if (this.seleccionados.length !== this.cantidad) return false;
     return this.seleccionados.every((p) => this.passengerIsValid(p));
   }
@@ -217,5 +181,115 @@ export class CrearComponent implements OnInit {
 
   isSelected(code: string): boolean {
     return this.seleccionados.some((s) => s.code === code);
+  }
+
+  // Helpers de disponibilidad y selección aleatoria
+  private updateAvailableCounts() {
+    const b = (this.mapa.business as any[]).filter((s: any) => s.available).length || 0;
+    const e = (this.mapa.economy as any[]).filter((s: any) => s.available).length || 0;
+    this.availableByClass = { business: b, economy: e };
+  }
+
+  availableInClass(): number {
+    return this.tipo === 'business' ? this.availableByClass.business : this.availableByClass.economy;
+  }
+
+  onCantidadChange(val: number) {
+    const max = this.availableInClass() || 1;
+    const raw = Number(val) || 1;
+    this.capExceeded = raw > max;
+    this.cantidad = Math.min(Math.max(1, raw), max);
+    this.syncPassengersWithQuantity();
+    this.ensureActiveIndex();
+  }
+
+  closeRandomModal() {
+    this.showRandomModal = false;
+    this.modalExceeded = false;
+  }
+
+  confirmRandomModal() {
+    const n = Math.min(Math.max(1, this.modalQuantity || 1), this.availableInClass());
+    if (this.modalExceeded || this.availableInClass() === 0) return;
+    this.pickRandomSeats(n);
+    this.closeRandomModal();
+  }
+
+  onModalQtyChange(val: number) {
+    const max = this.availableInClass() || 1;
+    const raw = Number(val) || 1;
+    this.modalExceeded = raw > max;
+    this.modalQuantity = Math.min(Math.max(1, raw), max);
+  }
+
+  modalIncrement() {
+    this.onModalQtyChange((this.modalQuantity || 1) + 1);
+  }
+
+  modalDecrement() {
+    this.onModalQtyChange((this.modalQuantity || 1) - 1);
+  }
+
+  modalSetMax() {
+    this.modalQuantity = this.availableInClass() || 1;
+  }
+
+  private pickRandomSeats(n: number) {
+    // Construye lista de disponibles actuales en la clase
+    const list = (this.mapa[this.tipo] as any[]).filter((s: any) => s.available && !this.isSelected(s.code));
+    if (!list.length) {
+      this.toast.warning('No hay asientos disponibles en esta clase.');
+      return;
+    }
+    // Shuffle simple
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    const take = Math.min(n, list.length);
+    const chosen = list.slice(0, take);
+  // Convertir a selección manual para que el usuario vea y pueda editar (flujo ahora siempre manual)
+    chosen.forEach((seat: any) => {
+      if (!this.isSelected(seat.code)) this.seleccionados.push({ code: seat.code, full_name: '', cui: '', has_bag: false });
+    });
+    this.cantidad = this.seleccionados.length;
+    // Límite máximo siempre deriva de disponibilidad (sin variable fija)
+    this.activeSeatIndex = this.seleccionados.length ? 0 : 0;
+  }
+
+  // Helpers UI para edición por asiento
+  get activeSeat() {
+    return this.seleccionados[this.activeSeatIndex];
+  }
+
+  setActiveSeat(i: number) {
+    if (!this.seleccionados.length) {
+      this.activeSeatIndex = 0;
+      return;
+    }
+    this.activeSeatIndex = Math.min(Math.max(0, i), this.seleccionados.length - 1);
+  }
+
+  setActiveSeatPrev() {
+    this.setActiveSeat(this.activeSeatIndex - 1);
+  }
+
+  setActiveSeatNext() {
+    this.setActiveSeat(this.activeSeatIndex + 1);
+  }
+
+  ensureActiveIndex() {
+    if (!this.seleccionados.length) {
+      this.activeSeatIndex = 0;
+      return;
+    }
+    if (this.activeSeatIndex > this.seleccionados.length - 1) this.activeSeatIndex = this.seleccionados.length - 1;
+  }
+
+  setTipo(t: 'business' | 'economy') {
+    if (this.tipo !== t) {
+      this.tipo = t;
+      this.onTipoChange();
+    }
   }
 }
