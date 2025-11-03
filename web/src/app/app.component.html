@@ -1,15 +1,22 @@
 <div class="min-h-screen flex flex-col text-white">
   <!-- Navbar translúcida -->
-  <header class="sticky top-0 z-20 bg-white/10 backdrop-blur-lg border-b border-white/10">
+  <header class="sticky top-0 z-20 bg-dark/80 backdrop-blur-xl border-b border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.25)]">
     <div class="container flex items-center justify-between py-4">
       <div class="flex items-center gap-3">
         <span class="text-xl font-semibold">14FLY</span>
         <span class="text-softblue/80 hidden sm:inline">Viajar ligero, elegante y humano</span>
       </div>
       <nav class="flex items-center gap-4 text-softblue">
-        <a routerLink="/" routerLinkActive="text-accent" [routerLinkActiveOptions]="{ exact: true }" class="hover:text-accent">Inicio</a>
-        <a routerLink="/reservas/mis-reservas" routerLinkActive="text-accent" class="hover:text-accent">Reservas</a>
-        <a routerLink="/login" routerLinkActive="text-accent" class="hover:text-accent">Ingresar</a>
+        <ng-container *ngIf="auth.isLoggedIn(); else guestLinks">
+          <span class="hidden sm:inline text-softblue/80">Hola, <span class="text-white">{{ auth.displayName() }}</span></span>
+          <a routerLink="/reservas/crear" routerLinkActive="text-accent" class="hover:text-accent">Nueva reserva</a>
+          <a routerLink="/reservas/mis-reservas" routerLinkActive="text-accent" class="hover:text-accent">Mis reservas</a>
+          <button type="button" (click)="auth.logout()" class="hover:text-accent">Cerrar sesión</button>
+        </ng-container>
+        <ng-template #guestLinks>
+          <a routerLink="/login" routerLinkActive="text-accent" class="hover:text-accent">Ingresar</a>
+          <a routerLink="/register" routerLinkActive="text-accent" class="hover:text-accent">Registrarse</a>
+        </ng-template>
       </nav>
     </div>
   </header>
@@ -28,3 +35,6 @@
     </div>
   </footer>
 </div>
+
+<!-- Global toasts overlay -->
+<app-toast-container />

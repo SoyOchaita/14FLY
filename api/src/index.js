@@ -8,6 +8,7 @@ import { errorHandler } from "./middleware/errorHandler.js";
 import userRoutes from "./routes/users.routes.js";
 import seatRoutes from "./routes/seats.routes.js";
 import reservationRoutes from "./routes/reservations.routes.js";
+import configRoutes from "./routes/config.routes.js";
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/seats", seatRoutes);
 app.use("/api/reservations", reservationRoutes);
 app.use("/api/reports", reportsRoutes);
+app.use("/api/config", configRoutes);
 
 // Endpoints de salud
 app.get("/", (req, res) => res.send("🛫 API 14FLY en ejecución"));

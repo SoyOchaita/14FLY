@@ -1,4 +1,5 @@
 import { HttpError } from "./response.js";
+import { validateCUI as validateCuiService } from "../services/cui.service.js";
 
 export function validateFullName(full_name) {
   const pattern = /^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/;
@@ -10,4 +11,10 @@ export function validateFullName(full_name) {
     throw new HttpError("El campo 'full_name' solo puede contener letras y espacios (sin números ni símbolos).", 400);
   }
   return name;
+}
+
+// Valida CUI guatemalteco: delega a servicio robusto; acepta 13 dígitos o ####-#####-####
+export function validateCUI(cui) {
+  const value = String(cui || "").trim();
+  return validateCuiService(value);
 }

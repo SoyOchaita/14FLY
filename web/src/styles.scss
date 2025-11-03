@@ -13,25 +13,24 @@ body {
 	line-height: 1.6;
 }
 
+/* Enlaces: por defecto discretos; acento solo al hover */
 a {
-	@apply text-accent hover:underline;
+	@apply text-softblue hover:text-accent transition-colors;
 }
 
 /* Helpers (utilidades de diseño) */
 .neo-card {
-	@apply bg-white/90 dark:bg-dark/90 rounded-2xl shadow-air border border-white/10 dark:border-white/5;
+	@apply bg-white/5 rounded-2xl shadow-air border border-white/10 backdrop-blur-xl;
 }
 .btn-accent {
 	@apply bg-accent text-dark font-semibold rounded-xl px-5 py-3 transition-all duration-300 ease-in-out hover:bg-[#f8a35e] hover:shadow-glow hover:-translate-y-0.5;
 }
 .input-neo {
-	@apply bg-white/10 dark:bg-white/10 border-b border-softblue/50 focus:border-accent text-white placeholder:text-softblue/70 w-full py-3 px-4 outline-none transition;
+	@apply bg-white/10 ring-1 ring-white/15 rounded-xl focus:ring-2 focus:ring-accent/60 focus:border-transparent text-white placeholder:text-softblue/70 w-full py-3 px-4 outline-none transition;
 }
 
 /* Elementos por defecto */
-button {
-	@apply btn-accent;
-}
+/* No forzamos todos los botones a estilo primario; usar .btn-accent cuando aplique */
 input, select, textarea {
 	@apply input-neo;
 }

@@ -1,38 +1,136 @@
 import { pool } from "../db/pool.js";
 import { ok, HttpError } from "../utils/response.js";
+import { validateCUI } from "../utils/validators.js";
 
+// POST /api/reservations
+// Body: { seats: [{ code, full_name, cui, has_bag }] }
 export const createReservation = async (req, res) => {
+  const client = await pool.connect();
   try {
-    const { seat_id, passenger_id, has_luggage = false, price_base } = req.body;
     const uid = req.user.id;
-    if (!seat_id || !price_base) throw new HttpError("Datos incompletos", 400);
+    const { seats, quantity, seatClass, selectionMode, seatsData } = req.body || {};
 
-    const seatQ = await pool.query("SELECT is_occupied FROM seats WHERE seat_id=$1", [seat_id]);
-    if (!seatQ.rows.length) throw new HttpError("Asiento no existe", 404);
-    if (seatQ.rows[0].is_occupied) throw new HttpError("Asiento no disponible", 400);
+    await client.query("BEGIN");
+    const created = [];
 
-    // VIP descuento 10%
-    const { rows: r } = await pool.query("SELECT COUNT(*)::int AS cnt FROM reservations WHERE user_id=$1", [uid]);
-    const vip = (r[0]?.cnt || 0) >= 5;
-    let total = Number(price_base);
-    if (vip) total = total * 0.9;
+    // Caso 1: payload con arreglo de seats [{ code, full_name, cui, has_bag }]
+    if (Array.isArray(seats) && seats.length > 0) {
+      for (const s of seats) {
+        const code = String(s.code || "").trim();
+        const fullName = String(s.full_name || "").trim();
+        const cui = String(s.cui || "").replace(/[\-\s]/g, "");
+        const hasBag = !!s.has_bag;
+        if (!code || !fullName || !cui) throw new HttpError("Cada asiento debe incluir code, full_name y cui.", 400);
+        if (!validateCUI(cui)) throw new HttpError(`CUI inválido para el asiento ${code}.`, 400);
 
-    const ins = await pool.query(
-      "INSERT INTO reservations(user_id, seat_id, passenger_id, has_luggage, price_base, total_price) VALUES($1,$2,$3,$4,$5,$6) RETURNING reservation_id",
-      [uid, seat_id, passenger_id || null, !!has_luggage, price_base, total]
-    );
-    await pool.query("UPDATE seats SET is_occupied=true WHERE seat_id=$1", [seat_id]);
-    return ok(res, "Reserva creada", { reservation_id: ins.rows[0].reservation_id, total, vip });
+        const seatRes = await client.query(
+          `UPDATE seats SET is_occupied=true
+           WHERE seat_number=$1 AND is_occupied=false
+           RETURNING seat_id, seat_number`,
+          [code]
+        );
+        if (!seatRes.rows.length) throw new HttpError(`Asiento ${code} no disponible.`, 409);
+        const { seat_id, seat_number } = seatRes.rows[0];
+
+        const paxRes = await client.query(
+          `INSERT INTO passengers(full_name, cui)
+           VALUES ($1, $2)
+           ON CONFLICT (cui) DO UPDATE SET full_name = EXCLUDED.full_name
+           RETURNING passenger_id`,
+          [fullName, cui]
+        );
+
+        const ins = await client.query(
+          `INSERT INTO reservations(user_id, seat_id, passenger_id, has_luggage, price_base, discount, modification_fee, total_price)
+           VALUES ($1, $2, $3, $4, 0, 0, 0, 0)
+           RETURNING reservation_id, reservation_date`,
+          [uid, seat_id, paxRes.rows[0].passenger_id, hasBag]
+        );
+
+        created.push({ seat_code: seat_number, created_at: ins.rows[0].reservation_date });
+      }
+    }
+    // Caso 2: selección aleatoria por clase y cantidad
+    else if (selectionMode === "random") {
+      const cls = String(seatClass || "").toLowerCase();
+      if (!quantity || !["business", "economy"].includes(cls)) {
+        throw new HttpError("Faltan datos requeridos para selección aleatoria (quantity y seatClass).", 400);
+      }
+      const dbClass = cls === "business" ? "Negocios" : "Económica";
+      const passengers = Array.isArray(seatsData) ? seatsData : [];
+      if (passengers.length < Number(quantity)) {
+        throw new HttpError("Debe proporcionar datos de pasajero para cada asiento solicitado (seatsData).", 400);
+      }
+
+      for (let i = 0; i < Number(quantity); i++) {
+        const p = passengers[i];
+        const fullName = String(p.full_name || "").trim();
+        const cui = String(p.cui || "").replace(/[\-\s]/g, "");
+        const hasBag = !!p.has_bag;
+        if (!fullName || !cui) throw new HttpError("Cada pasajero debe incluir full_name y cui.", 400);
+        if (!validateCUI(cui)) throw new HttpError(`CUI inválido para el pasajero #${i + 1}.`, 400);
+
+        // Selección y marcado atómico del asiento aleatorio disponible
+        const seatPick = await client.query(
+          `WITH picked AS (
+             SELECT seat_id FROM seats
+              WHERE seat_class=$1 AND is_occupied=false
+              ORDER BY RANDOM()
+              LIMIT 1
+           )
+           UPDATE seats s SET is_occupied=true
+            FROM picked
+            WHERE s.seat_id = picked.seat_id AND s.is_occupied=false
+            RETURNING s.seat_id, s.seat_number`,
+          [dbClass]
+        );
+        if (!seatPick.rows.length) throw new HttpError("No hay asientos disponibles.", 409);
+        const { seat_id, seat_number } = seatPick.rows[0];
+
+        const paxRes = await client.query(
+          `INSERT INTO passengers(full_name, cui)
+           VALUES ($1, $2)
+           ON CONFLICT (cui) DO UPDATE SET full_name = EXCLUDED.full_name
+           RETURNING passenger_id`,
+          [fullName, cui]
+        );
+
+        const ins = await client.query(
+          `INSERT INTO reservations(user_id, seat_id, passenger_id, has_luggage, price_base, discount, modification_fee, total_price)
+           VALUES ($1, $2, $3, $4, 0, 0, 0, 0)
+           RETURNING reservation_id, reservation_date`,
+          [uid, seat_id, paxRes.rows[0].passenger_id, hasBag]
+        );
+
+        created.push({ seat_code: seat_number, created_at: ins.rows[0].reservation_date });
+      }
+    } else {
+      throw new HttpError("Estructura de solicitud inválida. Proporcione 'seats' o 'selectionMode=random' con 'quantity' y 'seatClass'.", 400);
+    }
+
+    await client.query("COMMIT");
+    return res.json({ success: true, message: "Reservas realizadas correctamente.", data: created });
   } catch (err) {
+    await client.query("ROLLBACK");
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });
+  } finally {
+    client.release();
   }
 };
 
 export const getMyReservations = async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM reservations WHERE user_id=$1 ORDER BY reservation_date DESC",
+      `SELECT r.reservation_id, r.reservation_date AS created_at,
+              s.seat_number AS seat_code,
+              p.full_name, p.cui,
+              r.has_luggage AS has_bag
+         FROM reservations r
+         JOIN seats s ON s.seat_id = r.seat_id
+         JOIN passengers p ON p.passenger_id = r.passenger_id
+        WHERE r.user_id = $1
+        ORDER BY r.reservation_date DESC`,
       [req.user.id]
     );
     return ok(res, "Mis reservas", result.rows);

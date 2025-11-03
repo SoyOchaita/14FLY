@@ -52,7 +52,12 @@ export const getSeatMap = async (req, res) => {
     const { rows } = await pool.query("SELECT seat_number, is_occupied FROM seats");
     const withAvailability = overlayAvailabilityFromDb(plane, rows);
 
-    return ok(res, "Mapa de asientos generado", withAvailability);
+    // Adapt response shape to required spec: { business: [...], economy: [...] }
+    const data = {
+      business: withAvailability.plane.business.seats.map((s) => ({ code: s.code, available: s.available })),
+      economy: withAvailability.plane.economy.seats.map((s) => ({ code: s.code, available: s.available })),
+    };
+    return ok(res, "Mapa de asientos generado", data);
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });
@@ -65,7 +70,31 @@ export const resetSeats = async (_req, res) => {
     const plane = generatePlaneSeats();
     const { rows } = await pool.query("SELECT seat_number, is_occupied FROM seats");
     const withAvailability = overlayAvailabilityFromDb(plane, rows);
-    return ok(res, "Todos los asientos fueron restablecidos a disponibles", withAvailability);
+    const data = {
+      business: withAvailability.plane.business.seats.map((s) => ({ code: s.code, available: s.available })),
+      economy: withAvailability.plane.economy.seats.map((s) => ({ code: s.code, available: s.available })),
+    };
+    return ok(res, "Todos los asientos fueron restablecidos a disponibles", data);
+  } catch (err) {
+    const status = err.status || 500;
+    return res.status(status).json({ success: false, message: err.message, data: err.data || null });
+  }
+};
+
+export const getRandomSeatByClass = async (req, res) => {
+  try {
+    const seatClassParam = (req.params.class || "").toLowerCase();
+    if (!seatClassParam || !["business", "economy"].includes(seatClassParam)) {
+      throw new HttpError("Clase inválida. Use 'business' o 'economy'.", 400);
+    }
+    // Map to DB enum values
+    const dbClass = seatClassParam === "business" ? "Negocios" : "Económica";
+    const { rows } = await pool.query(
+      `SELECT seat_number AS code FROM seats WHERE seat_class=$1 AND is_occupied=false ORDER BY RANDOM() LIMIT 1`,
+      [dbClass]
+    );
+    if (!rows.length) return res.status(404).json({ success: false, message: "No hay asientos disponibles.", data: null });
+    return ok(res, "Asiento aleatorio", rows[0]);
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });

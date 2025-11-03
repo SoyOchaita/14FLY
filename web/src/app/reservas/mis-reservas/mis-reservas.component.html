@@ -1,27 +1,17 @@
-<section>
+<section class="p-6">
   <h1 class="text-2xl font-semibold text-white mb-4">Mis reservas</h1>
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <div class="neo-card p-6">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6" *ngIf="reservas.length; else empty">
+    <div class="neo-card p-6" *ngFor="let r of reservas">
       <div class="flex items-center justify-between mb-2">
-        <span class="text-lg text-white">Asiento A1</span>
-        <span class="text-sm text-softblue/80">2025-10-29</span>
+    <span class="text-lg text-white">Asiento {{ r.seat_code }}</span>
+    <span class="text-sm text-softblue/80">{{ r.created_at | date:'medium' }}</span>
       </div>
-      <div class="text-softblue mb-4">Clase: Económica · Maleta: Sí</div>
-      <div class="flex gap-2">
-        <button class="btn-accent">Modificar</button>
-        <button class="px-4 py-3 rounded-xl bg-red-600 hover:bg-red-700 transition">Cancelar</button>
-      </div>
-    </div>
-    <div class="neo-card p-6">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-lg text-white">Asiento B2</span>
-        <span class="text-sm text-softblue/80">2025-10-28</span>
-      </div>
-      <div class="text-softblue mb-4">Clase: Negocios · Maleta: No</div>
-      <div class="flex gap-2">
-        <button class="btn-accent">Modificar</button>
-        <button class="px-4 py-3 rounded-xl bg-red-600 hover:bg-red-700 transition">Cancelar</button>
-      </div>
+      <div class="text-softblue mb-1">Pasajero: <span class="text-white">{{ r.full_name }}</span></div>
+      <div class="text-softblue mb-4">CUI: <span class="text-white">{{ r.cui }}</span> · Maleta: <span class="text-white">{{ r.has_bag ? 'Sí' : 'No' }}</span></div>
+      <!-- Acciones futuras: modificar/cancelar -->
     </div>
   </div>
+  <ng-template #empty>
+    <div class="neo-card p-6 text-softblue">Aún no tienes reservas.</div>
+  </ng-template>
 </section>

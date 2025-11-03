@@ -39,4 +39,21 @@ export class AuthService {
   isLoggedIn(): boolean {
     return !!this.getToken();
   }
+
+  getUser<T = any>(): T | null {
+    const raw = localStorage.getItem('user');
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  displayName(): string {
+    const u: any = this.getUser();
+    return (
+      u?.name || u?.full_name || u?.username || u?.email || 'Usuario'
+    );
+  }
 }

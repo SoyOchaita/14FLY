@@ -1,7 +1,13 @@
 import pkg from "pg";
 import dotenv from "dotenv";
 dotenv.config();
-const { Pool } = pkg;
+const { Pool, types } = pkg;
+
+// Normalize PostgreSQL timestamp parsing to ISO 8601 strings with timezone (UTC Z)
+// OID 1114: timestamp without time zone
+types.setTypeParser(1114, (val) => (val ? new Date(val + "Z").toISOString() : null));
+// OID 1184: timestamp with time zone
+types.setTypeParser(1184, (val) => (val ? new Date(val).toISOString() : null));
 
 export const pool = new Pool({
   host: process.env.DB_HOST,
