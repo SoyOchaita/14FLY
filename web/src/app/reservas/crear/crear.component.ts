@@ -15,6 +15,7 @@ export class CrearComponent implements OnInit {
   tipo: 'business' | 'economy' = 'economy';
   cantidad = 1;
   seleccionMode: 'manual' | 'random' = 'manual';
+  maxCantidad = 10;
   mapa: any = { business: [], economy: [] };
   private mapaIndex: { business: Map<string, any>; economy: Map<string, any> } = {
     business: new Map<string, any>(),
@@ -36,26 +37,39 @@ export class CrearComponent implements OnInit {
         // Construir índices por código para lookup rápido
         this.mapaIndex.business = new Map((this.mapa.business as any[]).map((s: any) => [s.code, s]));
         this.mapaIndex.economy = new Map((this.mapa.economy as any[]).map((s: any) => [s.code, s]));
-        // Limpia selección si quedaron códigos ocupados
-        const codesDisponibles = new Set((this.mapa.business as any[]).concat(this.mapa.economy).map((s: any) => s.code));
-        this.seleccionados = this.seleccionados.filter((s) => codesDisponibles.has(s.code));
+        // Limpia selección si quedaron códigos ocupados (según disponibilidad real del servidor)
+        const disponibles = new Set(
+          ((this.mapa.business as any[]).concat(this.mapa.economy)).filter((s: any) => s.available).map((s: any) => s.code)
+        );
+        this.seleccionados = this.seleccionados.filter((s) => !s.code || disponibles.has(s.code));
       },
     });
   }
 
   toggleSeleccion(seat: any) {
     if (!seat) return;
+    if (this.seleccionMode !== 'manual') return; // Mapa solo en manual
+
     const idx = this.seleccionados.findIndex((s) => s.code === seat.code);
     if (idx >= 0) {
-      // Deseleccionar
+      // Deseleccionar (no tocar disponibilidad real del asiento)
       this.seleccionados.splice(idx, 1);
-      seat.available = true;
       return;
     }
-    if (seat.available && this.seleccionados.length < this.cantidad) {
-      seat.available = false;
-      this.seleccionados.push({ code: seat.code, full_name: '', cui: '', has_bag: false });
+
+    if (!seat.available) return; // Ocupado por otra reserva
+
+    const selCount = this.seleccionados.length;
+    if (selCount >= this.cantidad) {
+      // Modo incremental: si el usuario sigue seleccionando, incrementa cantidad hasta el máximo
+      if (selCount < this.maxCantidad) {
+        this.cantidad = selCount + 1;
+      } else {
+        return; // alcanzó el máximo permitido
+      }
     }
+
+    this.seleccionados.push({ code: seat.code, full_name: '', cui: '', has_bag: false });
   }
 
   seleccionarAleatorio() {
@@ -68,9 +82,7 @@ export class CrearComponent implements OnInit {
         // Marcar en el mapa si existe
         const list = this.mapa[this.tipo] as any[];
         const target = list.find((s) => s.code === seat.code);
-        if (target && target.available) {
-          this.toggleSeleccion(target);
-        }
+        if (target && target.available) this.toggleSeleccion(target);
       },
       error: () => {},
       complete: () => (this.loading = false),
@@ -124,32 +136,31 @@ export class CrearComponent implements OnInit {
   }
 
   syncPassengersWithQuantity() {
-    const current = this.seleccionados.length;
-    if (current < this.cantidad) {
-      for (let i = current; i < this.cantidad; i++) {
-        this.seleccionados.push({ code: '', full_name: '', cui: '', has_bag: false });
+    // Sincroniza según el modo
+    if (this.seleccionMode === 'manual') {
+      // En manual nunca agregamos placeholders sin código; solo recortamos si sobra
+      const conCodigo = this.seleccionados.filter((s) => !!s.code);
+      if (conCodigo.length > this.cantidad) {
+        this.seleccionados = conCodigo.slice(0, this.cantidad);
+      } else {
+        this.seleccionados = conCodigo; // mantener lo seleccionado, permitir que el mapa incremente
       }
-    } else if (current > this.cantidad) {
-      // Si había asientos manualmente seleccionados extra, liberarlos en el mapa
-      const removidos = this.seleccionados.splice(this.cantidad);
-      removidos.forEach((r) => {
-        if (!r.code) return;
-        const list = (this.mapa.business as any[]).concat(this.mapa.economy);
-        const seat = list.find((s) => s.code === r.code);
-        if (seat) seat.available = true;
-      });
+      return;
     }
+
+    // Modo aleatorio: mantener exactamente 'cantidad' filas sin código
+    const arr = this.seleccionados.map(({ full_name, cui, has_bag }) => ({ code: '', full_name, cui, has_bag }));
+    if (arr.length < this.cantidad) {
+      for (let i = arr.length; i < this.cantidad; i++) arr.push({ code: '', full_name: '', cui: '', has_bag: false });
+    } else if (arr.length > this.cantidad) {
+      arr.splice(this.cantidad);
+    }
+    this.seleccionados = arr;
   }
 
   onTipoChange() {
     // Al cambiar de clase, limpiar selección manual y ajustar pasajeros
     if (this.seleccionMode === 'manual') {
-      // Liberar los asientos marcados en el mapa
-      this.seleccionados.forEach((sel) => {
-        const list = (this.mapa.business as any[]).concat(this.mapa.economy);
-        const seat = list.find((s) => s.code === sel.code);
-        if (seat) seat.available = true;
-      });
       this.seleccionados = [];
     }
     this.syncPassengersWithQuantity();
@@ -158,14 +169,12 @@ export class CrearComponent implements OnInit {
   onModeChange() {
     // Al cambiar de modo, para aleatorio no se requieren códigos
     if (this.seleccionMode === 'random') {
-      // Liberar asientos seleccionados en el mapa
-      this.seleccionados.forEach((sel) => {
-        const list = (this.mapa.business as any[]).concat(this.mapa.economy);
-        const seat = list.find((s) => s.code === sel.code);
-        if (seat) seat.available = true;
-      });
       // Mantener solo los datos de pasajero sin códigos
       this.seleccionados = this.seleccionados.map(({ full_name, cui, has_bag }) => ({ code: '', full_name, cui, has_bag }));
+      this.syncPassengersWithQuantity();
+    } else {
+      // Volver a manual: eliminar placeholders sin código
+      this.seleccionados = this.seleccionados.filter((s) => !!s.code);
       this.syncPassengersWithQuantity();
     }
   }
@@ -204,5 +213,9 @@ export class CrearComponent implements OnInit {
     const code = `${row}${col}`;
     const map = this.mapaIndex[this.tipo] as Map<string, any>;
     return map.get(code) || null;
+  }
+
+  isSelected(code: string): boolean {
+    return this.seleccionados.some((s) => s.code === code);
   }
 }

@@ -7,7 +7,7 @@
 			<option value="business">Clase de Negocios</option>
 			<option value="economy">Clase Económica</option>
 		</select>
-			<input type="number" [(ngModel)]="cantidad" (ngModelChange)="syncPassengersWithQuantity()" name="cantidad" min="1" max="5" class="input-neo !w-28" placeholder="Cantidad" />
+			<input type="number" [(ngModel)]="cantidad" (ngModelChange)="syncPassengersWithQuantity()" name="cantidad" min="1" [attr.max]="maxCantidad" class="input-neo !w-28" placeholder="Cantidad" />
 			<select [(ngModel)]="seleccionMode" (ngModelChange)="onModeChange()" name="mode" class="input-neo !w-auto">
 				<option value="manual">Selección manual</option>
 				<option value="random">Aleatorio</option>
@@ -35,8 +35,11 @@
 							<ng-container *ngFor="let c of colOrder">
 								<ng-container *ngIf="getSeat(r, c) as seat; else emptyCell">
 									<div (click)="toggleSeleccion(seat)"
-										 [class.bg-green-400]="seat.available"
-										 [class.bg-red-500]="!seat.available"
+										 [ngClass]="{
+										   'bg-red-500': !seat.available,
+										   'bg-yellow-400': seat.available && isSelected(seat.code),
+										   'bg-green-400': seat.available && !isSelected(seat.code)
+										 }"
 										 class="w-12 h-12 rounded-lg text-center text-white font-semibold cursor-pointer transition-all hover:scale-105 select-none flex items-center justify-center font-mono">
 										{{ seat.code }}
 									</div>
@@ -48,7 +51,7 @@
 						</div>
 					</div>
 				</div>
-				<p class="text-softblue/80 text-sm mt-3">Verde: disponible · Rojo: seleccionado u ocupado</p>
+				<p class="text-softblue/80 text-sm mt-3">Verde: disponible · Amarillo: seleccionado · Rojo: ocupado</p>
 			</div>
 				<ng-template #noMap>
 					<div class="neo-card p-6 text-softblue">Modo aleatorio: no es necesario seleccionar asientos manualmente. Ingresa los datos de los pasajeros y confirma.</div>
