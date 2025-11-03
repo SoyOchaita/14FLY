@@ -1,0 +1,16 @@
+<section class="min-h-[70vh] flex items-center justify-center">
+	<div class="w-full max-w-md neo-card p-8">
+		<h1 class="text-3xl font-semibold text-white mb-2 text-center">Iniciar sesión</h1>
+		<p class="text-softblue/80 text-center mb-6">Bienvenido de vuelta a 14FLY</p>
+
+		<form class="space-y-5" (ngSubmit)="onSubmit()" #f="ngForm">
+			<div>
+				<input name="email" [(ngModel)]="credentials.email" type="email" placeholder="Correo" class="input-neo" required />
+			</div>
+			<div>
+				<input name="password" [(ngModel)]="credentials.password" type="password" placeholder="Contraseña" class="input-neo" required />
+			</div>
+			<button type="submit" class="btn-accent w-full">Entrar</button>
+		</form>
+	</div>
+</section>

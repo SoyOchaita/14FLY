@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json.schemastore.org/stylelintrc",
+  "extends": [
+    "stylelint-config-standard-scss"
+  ],
+  "overrides": [
+    {
+      "files": ["**/*.scss", "**/*.css"],
+      "customSyntax": "postcss-scss"
+    }
+  ],
+  "rules": {
+    "at-rule-no-unknown": [true, {
+      "ignoreAtRules": [
+        "tailwind",
+        "apply",
+        "layer",
+        "variants",
+        "responsive",
+        "screen"
+      ]
+    }],
+    "scss/at-rule-no-unknown": null
+  }
+}

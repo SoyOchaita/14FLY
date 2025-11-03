@@ -1,0 +1,3 @@
+-- Deprecated legacy schema file.
+-- Intentionally left empty to avoid duplicate object creation during Docker init.
+-- Use 001_schema_base.sql and 002_add_cui_to_users.sql as the authoritative scripts.

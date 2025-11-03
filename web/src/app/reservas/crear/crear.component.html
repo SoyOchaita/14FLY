@@ -1,0 +1,29 @@
+<section>
+	<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+		<div class="neo-card p-6">
+			<h2 class="text-xl font-semibold text-white mb-4">Seleccionar asientos</h2>
+			<!-- Placeholder del mapa; integrar con /api/seats/map -->
+			<div class="grid grid-cols-5 gap-2">
+				<div class="h-10 rounded border border-green-500/60 bg-green-500/10"></div>
+				<div class="h-10 rounded border border-red-500/60 bg-red-500/10"></div>
+				<div class="h-10 rounded border border-accent bg-accent/30"></div>
+				<div class="h-10 rounded border border-green-500/60 bg-green-500/10"></div>
+				<div class="h-10 rounded border border-green-500/60 bg-green-500/10"></div>
+			</div>
+			<p class="text-softblue/80 text-sm mt-3">Consejo: Negocios (1-2), Económica (3-7)</p>
+		</div>
+
+		<div class="neo-card p-6">
+			<h2 class="text-xl font-semibold text-white mb-4">Datos del pasajero</h2>
+			<form class="space-y-4">
+				<input placeholder="Nombre completo" class="input-neo" />
+				<input placeholder="CUI (####-#####-####)" class="input-neo" />
+				<select class="input-neo">
+					<option>Sin maleta</option>
+					<option>Con maleta</option>
+				</select>
+				<button class="btn-accent w-full">Confirmar reserva</button>
+			</form>
+		</div>
+	</div>
+</section>

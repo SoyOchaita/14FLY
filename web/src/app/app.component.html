@@ -1,0 +1,30 @@
+<div class="min-h-screen flex flex-col text-white">
+  <!-- Navbar translúcida -->
+  <header class="sticky top-0 z-20 bg-white/10 backdrop-blur-lg border-b border-white/10">
+    <div class="container flex items-center justify-between py-4">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-semibold">14FLY</span>
+        <span class="text-softblue/80 hidden sm:inline">Viajar ligero, elegante y humano</span>
+      </div>
+      <nav class="flex items-center gap-4 text-softblue">
+        <a routerLink="/" routerLinkActive="text-accent" [routerLinkActiveOptions]="{ exact: true }" class="hover:text-accent">Inicio</a>
+        <a routerLink="/reservas/mis-reservas" routerLinkActive="text-accent" class="hover:text-accent">Reservas</a>
+        <a routerLink="/login" routerLinkActive="text-accent" class="hover:text-accent">Ingresar</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Contenido -->
+  <main class="flex-1">
+    <div class="container py-10 sm:py-16">
+      <router-outlet />
+    </div>
+  </main>
+
+  <!-- Footer oscuro con degradado -->
+  <footer class="mt-auto bg-gradient-to-br from-dark to-graphite border-t border-white/10 text-softblue">
+    <div class="container py-8 text-center">
+      14FLY © 2025 · Neo‑Air Travel UI
+    </div>
+  </footer>
+</div>
