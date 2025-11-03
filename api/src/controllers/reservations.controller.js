@@ -7,6 +7,7 @@ import { validateCUI } from "../utils/validators.js";
 export const createReservation = async (req, res) => {
   const client = await pool.connect();
   try {
+    if (!req.user || !req.user.id) throw new HttpError("No autenticado", 401);
     const uid = req.user.id;
     const { seats, quantity, seatClass, selectionMode, seatsData } = req.body || {};
 
@@ -121,6 +122,7 @@ export const createReservation = async (req, res) => {
 
 export const getMyReservations = async (req, res) => {
   try {
+    if (!req.user || !req.user.id) throw new HttpError("No autenticado", 401);
     const result = await pool.query(
       `SELECT r.reservation_id, r.reservation_date AS created_at,
               s.seat_number AS seat_code,
@@ -142,6 +144,7 @@ export const getMyReservations = async (req, res) => {
 
 export const updateReservation = async (req, res) => {
   try {
+    if (!req.user || !req.user.id) throw new HttpError("No autenticado", 401);
     const { id } = req.params;
     const { seat_id, price_base } = req.body;
     const uid = req.user.id;
@@ -183,6 +186,7 @@ export const updateReservation = async (req, res) => {
 
 export const cancelReservation = async (req, res) => {
   try {
+    if (!req.user || !req.user.id) throw new HttpError("No autenticado", 401);
     const { id } = req.params;
     const uid = req.user.id;
     const { rows } = await pool.query("SELECT seat_id FROM reservations WHERE reservation_id=$1 AND user_id=$2", [id, uid]);
