@@ -156,6 +156,8 @@
 	</div>
 </div>
 
+<!-- Modal edición inline desde confirmación -->
+<app-edit-reserva-modal *ngIf="showInlineEdit && inlineEditReserva" [reservation]="inlineEditReserva" (closed)="onInlineEditClosed()" (updated)="onInlineEditUpdated($event)"></app-edit-reserva-modal>
 <!-- Modal paso a paso: continuar con siguientes -->
 <div *ngIf="showStepModal" class="fixed inset-0 z-50 flex items-center justify-center">
 	<div class="absolute inset-0 bg-black/60" (click)="stopStepFlow()"></div>

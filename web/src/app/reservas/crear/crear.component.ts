@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { ReservasService } from '../reservas.service';
 import { ToastService } from '../../ui/toast/toast.service';
 import { Router } from '@angular/router';
+import { EditReservaModalComponent } from '../edit-modal/edit-reserva-modal.component';
 
 @Component({
   selector: 'app-crear',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, EditReservaModalComponent],
   templateUrl: './crear.component.html',
   styleUrl: './crear.component.scss'
 })
@@ -30,6 +31,10 @@ export class CrearComponent implements OnInit {
   // Modal de confirmación
   showConfirmModal = false;
   confirmList: Array<{ reservation_id: number; seat_code: string; created_at: string }> = [];
+  // Modal de edición inline desde confirmación
+  showInlineEdit = false;
+  inlineEditReserva: { reservation_id: number; seat_code: string; full_name: string; cui: string; has_bag: boolean; seat_class?: string } | null = null;
+  private myReservasCache: any[] | null = null;
 
   // Flujo paso a paso (confirmar después de cada reserva)
   stepQueue: Array<{ code: string; full_name: string; cui: string; has_bag: boolean }> = [];
@@ -381,7 +386,41 @@ export class CrearComponent implements OnInit {
   }
 
   goToModificar(id: number) {
-    this.closeConfirmModal();
-    this.router.navigate(['/reservas/mis-reservas'], { queryParams: { edit: id } });
+    // Abrir modal de edición inline en vez de navegar
+    this.ensureMyReservas(() => {
+      const r = (this.myReservasCache || []).find((x: any) => x.reservation_id === id);
+      if (!r) {
+        this.toast.error('No se encontró la reserva para editar.');
+        return;
+      }
+      this.inlineEditReserva = { reservation_id: r.reservation_id, seat_code: r.seat_code, full_name: r.full_name, cui: r.cui, has_bag: !!r.has_bag, seat_class: r.seat_class };
+      this.showInlineEdit = true;
+    });
+  }
+
+  onInlineEditClosed() {
+    this.showInlineEdit = false;
+    this.inlineEditReserva = null;
+  }
+
+  onInlineEditUpdated(ev: { reservation_id: number; new_seat_code?: string }) {
+    // Refrescar cache de reservas, y actualizar la fila en confirmList si aplica
+    this.reservas.getMyReservations().subscribe({
+      next: (res) => {
+        this.myReservasCache = res.data || [];
+        if (ev?.reservation_id && ev?.new_seat_code) {
+          const idx = this.confirmList.findIndex((x) => x.reservation_id === ev.reservation_id);
+          if (idx >= 0) this.confirmList[idx] = { ...this.confirmList[idx], seat_code: ev.new_seat_code };
+        }
+      }
+    });
+  }
+
+  private ensureMyReservas(done: () => void) {
+    if (this.myReservasCache) return done();
+    this.reservas.getMyReservations().subscribe({
+      next: (res) => { this.myReservasCache = res.data || []; done(); },
+      error: () => { this.myReservasCache = []; done(); }
+    });
   }
 }
