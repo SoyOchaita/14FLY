@@ -89,9 +89,10 @@
 					</div>
 					<input placeholder="Nombre completo" class="input-neo w-full mb-2" [(ngModel)]="activeSeat.full_name" name="full_name_{{activeSeatIndex}}" />
 					<input placeholder="CUI (13 dígitos)" inputmode="numeric" class="input-neo w-full mb-2" [(ngModel)]="activeSeat.cui" name="cui_{{activeSeatIndex}}" />
-					<div class="text-xs text-red-400" *ngIf="activeSeat && !passengerIsValid(activeSeat)">
-						Ingresa nombre y CUI válido (13 dígitos).
-					</div>
+								<div class="text-xs text-red-400 space-y-1" *ngIf="activeSeat">
+									<div *ngIf="!fullNameIsValid(activeSeat.full_name)">Nombre: solo letras y espacios (mín. 3).</div>
+									<div *ngIf="!cuiIsValid(activeSeat.cui)">CUI: 13 dígitos.</div>
+								</div>
 					<label class="inline-flex items-center gap-2 text-softblue">
 						<input type="checkbox" [(ngModel)]="activeSeat.has_bag" name="bag_{{activeSeatIndex}}" />
 						¿Incluye maleta?

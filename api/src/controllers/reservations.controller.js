@@ -24,6 +24,8 @@ export const createReservation = async (req, res) => {
         const cui = String(s.cui || "").replace(/[\-\s]/g, "");
         const hasBag = !!s.has_bag;
         if (!code || !fullName || !cui) throw new HttpError("Cada asiento debe incluir code, full_name y cui.", 400);
+        // Validaciones antes de tocar la BD: nombre y CUI
+        const normalizedName = validateFullName(fullName); // lanza 400 si inválido
         if (!validateCUI(cui)) throw new HttpError(`CUI inválido para el asiento ${code}.`, 400);
 
         const seatRes = await client.query(
@@ -40,7 +42,7 @@ export const createReservation = async (req, res) => {
            VALUES ($1, $2)
            ON CONFLICT (cui) DO UPDATE SET full_name = EXCLUDED.full_name
            RETURNING passenger_id`,
-          [fullName, cui]
+          [normalizedName, cui]
         );
 
         const ins = await client.query(
@@ -54,7 +56,7 @@ export const createReservation = async (req, res) => {
       }
     }
     // Caso 2: selección aleatoria por clase y cantidad
-    else if (selectionMode === "random") {
+  else if (selectionMode === "random") {
       const cls = String(seatClass || "").toLowerCase();
       if (!quantity || !["business", "economy"].includes(cls)) {
         throw new HttpError("Faltan datos requeridos para selección aleatoria (quantity y seatClass).", 400);
@@ -67,11 +69,12 @@ export const createReservation = async (req, res) => {
 
       for (let i = 0; i < Number(quantity); i++) {
         const p = passengers[i];
-        const fullName = String(p.full_name || "").trim();
+  const fullName = String(p.full_name || "").trim();
         const cui = String(p.cui || "").replace(/[\-\s]/g, "");
         const hasBag = !!p.has_bag;
-        if (!fullName || !cui) throw new HttpError("Cada pasajero debe incluir full_name y cui.", 400);
-        if (!validateCUI(cui)) throw new HttpError(`CUI inválido para el pasajero #${i + 1}.`, 400);
+  if (!fullName || !cui) throw new HttpError("Cada pasajero debe incluir full_name y cui.", 400);
+  const normalizedName = validateFullName(fullName);
+  if (!validateCUI(cui)) throw new HttpError(`CUI inválido para el pasajero #${i + 1}.`, 400);
 
         // Selección y marcado atómico del asiento aleatorio disponible
         const seatPick = await client.query(
@@ -95,7 +98,7 @@ export const createReservation = async (req, res) => {
            VALUES ($1, $2)
            ON CONFLICT (cui) DO UPDATE SET full_name = EXCLUDED.full_name
            RETURNING passenger_id`,
-          [fullName, cui]
+          [normalizedName, cui]
         );
 
         const ins = await client.query(

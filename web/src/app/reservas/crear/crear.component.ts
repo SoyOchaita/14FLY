@@ -223,8 +223,15 @@ export class CrearComponent implements OnInit {
     return digits.length === 13;
   }
 
+  fullNameIsValid(name: string): boolean {
+    const n = (name || '').trim();
+    if (n.length < 3) return false;
+    // Letras (incluye acentos y ñ) y espacios únicamente
+    return /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ ]+$/.test(n);
+  }
+
   passengerIsValid(p: { full_name: string; cui: string }): boolean {
-    return !!p.full_name?.trim() && this.cuiIsValid(p.cui);
+    return this.fullNameIsValid(p.full_name) && this.cuiIsValid(p.cui);
   }
 
   get canConfirm(): boolean {
