@@ -128,25 +128,16 @@ export class MisReservasComponent implements OnInit {
     }
     this.api.updateReservation(model.id, { seat_id, has_luggage: !!model.has_bag, full_name: model.full_name, cui: model.cui }).subscribe({
       next: (res) => {
-        const data = res?.data || {};
-        this.editSuccess = { total: data.total, seatChanged: !!data.seatChanged, vip: !!data.vip };
         this.toast.success('Reserva actualizada');
-        // Actualizar el código actual en el modelo si cambió
-        if (changeSeat && model.new_seat_code) {
-          model.seat_code = model.new_seat_code;
-        }
-        // Refrescar lista y asientos para reflejar ocupación
-        this.api.getMyReservations().subscribe({ next: (res2) => (this.reservas = res2.data || this.reservas) });
-        this.api.getAllSeats().subscribe({
-          next: (res3) => {
-            const rows = Array.isArray(res3?.data) ? res3.data : res3;
-            this.allSeats = (rows || []).map((s: any) => ({ seat_id: s.seat_id, seat_number: s.seat_number, seat_class: s.seat_class, is_occupied: !!s.is_occupied }));
-            this.seatIndex = new Map(this.allSeats.map((s) => [s.seat_number, s]));
-            this.availableSeats = this.allSeats.filter((s: any) => !s.is_occupied || s.seat_number === model.seat_code);
-            // Recalcular previsualización con el nuevo estado
-            this.triggerQuote();
+        // Refrescar lista agrupada para reflejar el nuevo número de asiento en el conjunto
+        this.api.getMyReservations().subscribe({
+          next: (res2) => {
+            this.reservas = res2.data || [];
+            this.buildGroups();
           }
         });
+        // Cerrar automáticamente el modal después de guardar
+        this.closeEdit();
       },
       error: (err) => {
         this.editError = err?.error?.message || 'No se pudo actualizar la reserva';
