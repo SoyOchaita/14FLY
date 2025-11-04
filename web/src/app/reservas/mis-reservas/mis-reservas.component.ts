@@ -1,21 +1,39 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReservasService } from '../reservas.service';
+import { ActivatedRoute, Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../ui/toast/toast.service';
 
 @Component({
   selector: 'app-mis-reservas',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './mis-reservas.component.html',
   styleUrl: './mis-reservas.component.scss'
 })
 export class MisReservasComponent implements OnInit {
   reservas: Array<{ reservation_id: number; seat_code: string; created_at: string; full_name: string; cui: string; has_bag: boolean }> = [];
+  highlightId: number | null = null;
+  // Modal edición
+  showEditModal = false;
+  editModel: { id: number; seat_code: string; has_bag: boolean; new_seat_code: string | null; full_name: string; cui: string } | null = null;
+  editError: string | null = null;
+  availableSeats: Array<{ seat_id: number; seat_number: string; seat_class: string; is_occupied?: boolean }> = [];
+  allSeats: Array<{ seat_id: number; seat_number: string; seat_class: string; is_occupied: boolean }> = [];
+  private seatIndex: Map<string, { seat_id: number; seat_number: string; seat_class: string; is_occupied: boolean }> = new Map();
+  // Previsualización y resultado
+  editQuote: { total: number; seatChanged: boolean; vip: boolean } | null = null;
+  editSuccess: { total: number; seatChanged: boolean; vip: boolean } | null = null;
+  private quoteTimer: any = null;
 
-  constructor(private api: ReservasService, private toast: ToastService) {}
+  constructor(private api: ReservasService, private toast: ToastService, private route: ActivatedRoute, public router: Router) {}
 
   ngOnInit(): void {
+    this.route.queryParamMap.subscribe((params) => {
+      const edit = params.get('edit');
+      this.highlightId = edit ? Number(edit) : null;
+    });
     this.api.getMyReservations().subscribe({
       next: (res) => (this.reservas = res.data || []),
       error: (err) => {
@@ -23,5 +41,138 @@ export class MisReservasComponent implements OnInit {
         this.toast.error(msg);
       }
     });
+  }
+
+  openEdit(r: any) {
+    this.editModel = { id: r.reservation_id, seat_code: r.seat_code, has_bag: !!r.has_bag, new_seat_code: r.seat_code, full_name: r.full_name, cui: r.cui };
+    this.editError = null;
+    this.editQuote = null;
+    this.editSuccess = null;
+    this.showEditModal = true;
+    this.api.getAllSeats().subscribe({
+      next: (res) => {
+        const rows = Array.isArray(res?.data) ? res.data : res;
+        this.allSeats = (rows || []).map((s: any) => ({
+          seat_id: s.seat_id,
+          seat_number: s.seat_number,
+          seat_class: s.seat_class,
+          is_occupied: !!s.is_occupied
+        }));
+        // Índice por código
+        this.seatIndex = new Map(this.allSeats.map((s) => [s.seat_number, s]));
+        // Disponibles para cambiar (incluye el actual)
+        this.availableSeats = this.allSeats.filter((s: any) => !s.is_occupied || s.seat_number === r.seat_code);
+        // Generar previsualización inicial
+        this.triggerQuote();
+      },
+      error: () => {
+        this.availableSeats = [];
+        this.allSeats = [];
+        this.seatIndex = new Map();
+      }
+    });
+  }
+
+  closeEdit() {
+    this.showEditModal = false;
+    this.editModel = null;
+    this.availableSeats = [];
+    this.editError = null;
+    this.allSeats = [];
+    this.seatIndex = new Map();
+    this.editQuote = null;
+    this.editSuccess = null;
+  }
+
+  saveEdit() {
+    if (!this.editModel) return;
+    const model = this.editModel;
+    const changeSeat = model.new_seat_code && model.new_seat_code !== model.seat_code;
+    let seat_id: number | undefined = undefined;
+    if (changeSeat) {
+      const found = this.availableSeats.find((s) => s.seat_number === model.new_seat_code);
+      if (!found) {
+        this.toast.error('Asiento seleccionado inválido.');
+        return;
+      }
+      seat_id = found.seat_id;
+    }
+    this.api.updateReservation(model.id, { seat_id, has_luggage: !!model.has_bag, full_name: model.full_name, cui: model.cui }).subscribe({
+      next: (res) => {
+        const data = res?.data || {};
+        this.editSuccess = { total: data.total, seatChanged: !!data.seatChanged, vip: !!data.vip };
+        this.toast.success('Reserva actualizada');
+        // Actualizar el código actual en el modelo si cambió
+        if (changeSeat && model.new_seat_code) {
+          model.seat_code = model.new_seat_code;
+        }
+        // Refrescar lista y asientos para reflejar ocupación
+        this.api.getMyReservations().subscribe({ next: (res2) => (this.reservas = res2.data || this.reservas) });
+        this.api.getAllSeats().subscribe({
+          next: (res3) => {
+            const rows = Array.isArray(res3?.data) ? res3.data : res3;
+            this.allSeats = (rows || []).map((s: any) => ({ seat_id: s.seat_id, seat_number: s.seat_number, seat_class: s.seat_class, is_occupied: !!s.is_occupied }));
+            this.seatIndex = new Map(this.allSeats.map((s) => [s.seat_number, s]));
+            this.availableSeats = this.allSeats.filter((s: any) => !s.is_occupied || s.seat_number === model.seat_code);
+            // Recalcular previsualización con el nuevo estado
+            this.triggerQuote();
+          }
+        });
+      },
+      error: (err) => {
+        this.editError = err?.error?.message || 'No se pudo actualizar la reserva';
+      }
+    });
+  }
+
+  // Seat map helpers (usar layout general de Económica para mostrar todo)
+  get colOrder(): number[] { return [3, 4, 5, 6, 7]; }
+  get rowGroups(): string[][] { return [['I', 'H', 'G'], ['F', 'E', 'D'], ['C', 'B', 'A']]; }
+  getSeat(row: string, col: number): { code: string; available: boolean } | null {
+    const code = `${row}${col}`;
+    const s = this.seatIndex.get(code);
+    if (!s) return null;
+    const currentCode = this.editModel?.seat_code;
+    const isAvailable = !s.is_occupied || s.seat_number === currentCode;
+    return { code, available: isAvailable };
+  }
+  isChosen(code: string): boolean {
+    return this.editModel?.new_seat_code === code;
+  }
+  onSelectSeat(code: string) {
+    if (!this.editModel) return;
+    const s = this.seatIndex.get(code);
+    if (!s) return;
+    if (s.is_occupied && code !== this.editModel.seat_code) return; // ocupado y no es el actual
+    this.editModel.new_seat_code = code;
+    this.triggerQuote();
+  }
+
+  onToggleBag() {
+    this.triggerQuote();
+  }
+
+  private triggerQuote() {
+    if (!this.editModel) return;
+    // Debounce simple
+    if (this.quoteTimer) clearTimeout(this.quoteTimer);
+    this.quoteTimer = setTimeout(() => {
+      const model = this.editModel!;
+      const changeSeat = model.new_seat_code && model.new_seat_code !== model.seat_code;
+      let seat_id: number | undefined = undefined;
+      if (changeSeat) {
+        const found = this.availableSeats.find((s) => s.seat_number === model.new_seat_code);
+        if (found) seat_id = found.seat_id;
+      }
+      this.api.quoteReservation(model.id, { seat_id, has_luggage: !!model.has_bag }).subscribe({
+        next: (res) => {
+          const d = res?.data || {};
+          this.editQuote = { total: d.total, seatChanged: !!d.seatChanged, vip: !!d.vip };
+        },
+        error: () => {
+          this.editQuote = null;
+        }
+      });
+    }, 300);
   }
 }

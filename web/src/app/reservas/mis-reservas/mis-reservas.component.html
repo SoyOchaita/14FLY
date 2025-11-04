@@ -1,17 +1,94 @@
 <section class="p-6">
   <h1 class="text-2xl font-semibold text-white mb-4">Mis reservas</h1>
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6" *ngIf="reservas.length; else empty">
-    <div class="neo-card p-6" *ngFor="let r of reservas">
+    <div class="neo-card p-6 border transition" [ngClass]="{ 'ring-2 ring-softblue': highlightId===r.reservation_id }" *ngFor="let r of reservas">
       <div class="flex items-center justify-between mb-2">
     <span class="text-lg text-white">Asiento {{ r.seat_code }}</span>
     <span class="text-sm text-softblue/80">{{ r.created_at | date:'medium' }}</span>
       </div>
       <div class="text-softblue mb-1">Pasajero: <span class="text-white">{{ r.full_name }}</span></div>
       <div class="text-softblue mb-4">CUI: <span class="text-white">{{ r.cui }}</span> · Maleta: <span class="text-white">{{ r.has_bag ? 'Sí' : 'No' }}</span></div>
-      <!-- Acciones futuras: modificar/cancelar -->
+      <div class="flex gap-3">
+        <button class="px-3 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="openEdit(r)">Modificar</button>
+      </div>
     </div>
   </div>
   <ng-template #empty>
     <div class="neo-card p-6 text-softblue">Aún no tienes reservas.</div>
   </ng-template>
+
+  <!-- Modal edición -->
+  <div *ngIf="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/60" (click)="closeEdit()"></div>
+    <div class="relative neo-card p-6 w-full max-w-3xl">
+      <h4 class="text-lg font-semibold text-white mb-3">Modificar reserva</h4>
+      <!-- Error banner -->
+      <div *ngIf="editError" class="mb-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
+        {{ editError }}
+      </div>
+      <!-- Éxito / Totales post-guardado -->
+      <div *ngIf="editSuccess" class="mb-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm">
+        Total actualizado: <span class="font-semibold text-emerald-200">{{ editSuccess.total | number:'1.2-2' }}</span>
+        · Cambio de asiento: <span class="font-semibold">{{ editSuccess.seatChanged ? 'Sí' : 'No' }}</span>
+        · VIP: <span class="font-semibold">{{ editSuccess.vip ? 'Sí' : 'No' }}</span>
+      </div>
+      <div class="text-softblue mb-2">Actual: <span class="text-white font-semibold">{{ editModel?.seat_code }}</span></div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <!-- Mapa de asientos -->
+        <div class="md:col-span-2">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-white font-medium">Mapa de asientos</div>
+            <div class="text-softblue/70 text-xs">Toque para seleccionar</div>
+          </div>
+          <div class="space-y-2">
+            <!-- Encabezado columnas -->
+            <div class="flex items-center gap-2 pl-6">
+              <div class="w-5"></div>
+              <div *ngFor="let c of colOrder" class="w-10 text-center text-softblue font-mono">{{ c }}</div>
+            </div>
+            <!-- Filas -->
+            <div *ngFor="let group of rowGroups; let gi = index" [class.mt-2]="gi>0" class="space-y-1">
+              <div *ngFor="let r of group" class="flex items-center gap-2">
+                <div class="w-5 text-softblue">{{ r }}</div>
+                <ng-container *ngFor="let c of colOrder">
+                  <ng-container *ngIf="getSeat(r, c) as seat; else emptyCell">
+                    <div (click)="onSelectSeat(seat.code)"
+                         [ngClass]="{
+                           'bg-red-500': !seat.available && !isChosen(seat.code) && (editModel?.seat_code !== seat.code),
+                           'bg-yellow-400': seat.available && isChosen(seat.code),
+                           'bg-green-400': seat.available && !isChosen(seat.code)
+                         }"
+                         class="w-10 h-10 rounded-lg text-center text-white font-semibold cursor-pointer transition-all hover:scale-105 select-none flex items-center justify-center font-mono">
+                      {{ seat.code }}
+                    </div>
+                  </ng-container>
+                  <ng-template #emptyCell>
+                    <div class="w-10 h-10 rounded-lg opacity-30 border border-white/10"></div>
+                  </ng-template>
+                </ng-container>
+              </div>
+            </div>
+          </div>
+          <p class="text-softblue/80 text-xs mt-2">Verde: disponible · Amarillo: seleccionado · Rojo: ocupado</p>
+        </div>
+
+        <!-- Opciones -->
+        <div class="md:col-span-1">
+          <label class="inline-flex items-center gap-2 text-softblue">
+            <input type="checkbox" [(ngModel)]="editModel!.has_bag" (change)="onToggleBag()" />
+            ¿Incluye maleta?
+          </label>
+          <!-- Previsualización -->
+          <div *ngIf="editQuote" class="mt-3 p-3 rounded-lg bg-white/5 border border-white/10 text-softblue text-sm">
+            Previsualización: <span class="text-white font-semibold">{{ editQuote.total | number:'1.2-2' }}</span>
+            <div class="text-xs mt-1">Cambio de asiento: <span class="text-white">{{ editQuote.seatChanged ? 'Sí' : 'No' }}</span> · VIP: <span class="text-white">{{ editQuote.vip ? 'Sí' : 'No' }}</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3">
+        <button class="px-4 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="closeEdit()">Cancelar</button>
+        <button class="px-4 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="saveEdit()">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
 </section>

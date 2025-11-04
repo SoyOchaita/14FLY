@@ -17,9 +17,9 @@ export class AuthService {
       tap((res) => {
         if (res?.success && res?.data?.token) {
           localStorage.setItem('token', res.data.token);
-          if (res.data.user) {
-            localStorage.setItem('user', JSON.stringify(res.data.user));
-          }
+          // La API devuelve { token, profile }
+          const profile = res.data.profile || res.data.user || null;
+          if (profile) localStorage.setItem('user', JSON.stringify(profile));
           this.router.navigate(['/reservas/mis-reservas'], { replaceUrl: true });
         }
       })

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReservasService } from '../reservas.service';
 import { ToastService } from '../../ui/toast/toast.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-crear',
@@ -21,10 +22,21 @@ export class CrearComponent implements OnInit {
   };
   seleccionados: Array<{ code: string; full_name: string; cui: string; has_bag: boolean }> = [];
   loading = false;
+  constructor(private reservas: ReservasService, private toast: ToastService, private router: Router) {}
   // Modal para selección aleatoria
   showRandomModal = false;
   modalQuantity = 1;
   modalExceeded = false;
+  // Modal de confirmación
+  showConfirmModal = false;
+  confirmList: Array<{ reservation_id: number; seat_code: string; created_at: string }> = [];
+
+  // Flujo paso a paso (confirmar después de cada reserva)
+  stepQueue: Array<{ code: string; full_name: string; cui: string; has_bag: boolean }> = [];
+  stepResults: Array<{ reservation_id: number; seat_code: string; created_at: string }> = [];
+  showStepModal = false;
+  stepLast: { reservation_id: number; seat_code: string; created_at: string } | null = null;
+  stepRemaining = 0;
   // Disponibilidad por clase
   private availableByClass: { business: number; economy: number } = { business: 0, economy: 0 };
   // Advertencia si el usuario intenta exceder la disponibilidad
@@ -32,7 +44,7 @@ export class CrearComponent implements OnInit {
   // Navegación y edición de datos por asiento
   activeSeatIndex = 0;
 
-  constructor(private reservas: ReservasService, private toast: ToastService) {}
+  
 
   ngOnInit(): void {
     this.cargarMapa();
@@ -105,21 +117,73 @@ export class CrearComponent implements OnInit {
 
   reservar() {
     if (!this.canConfirm) return;
-    this.loading = true;
     if (this.seleccionados.length < this.cantidad) return this.toast.warning('Selecciona todos los asientos requeridos.');
-    const payload = { seats: this.seleccionados };
+    // Iniciar flujo paso a paso cuando hay más de 1
+    this.stepQueue = [...this.seleccionados];
+    this.stepResults = [];
+    this.stepLast = null;
+    this.stepRemaining = this.stepQueue.length;
+    this.reserveNextFromQueue();
+  }
+
+  private reserveNextFromQueue() {
+    if (!this.stepQueue.length) {
+      // Finalizado: mostrar resumen en el modal de confirmación
+      this.confirmList = [...this.stepResults];
+      this.showConfirmModal = true;
+      this.loading = false;
+      return;
+    }
+    const nextSeat = this.stepQueue.shift()!;
+    this.loading = true;
+    const payload = { seats: [nextSeat] };
     this.reservas.createReservation(payload).subscribe({
-      next: () => {
-        this.toast.success('Reserva completada');
-        this.seleccionados = [];
+      next: (res) => {
+        const created = Array.isArray(res?.data) ? res.data : [];
+        const info = created[0];
+        if (info) this.stepResults.push(info);
+        // Remover de seleccionados el asiento ya reservado
+        this.seleccionados = this.seleccionados.filter((s) => s.code !== nextSeat.code);
+        // Ajustar cantidad al restante
+        this.cantidad = Math.max(0, this.stepQueue.length);
+        this.stepLast = info || null;
+        this.stepRemaining = this.stepQueue.length;
         this.cargarMapa();
+        this.loading = false;
+        // Mostrar modal de continuar si aún faltan
+        if (this.stepRemaining > 0) {
+          this.showStepModal = true;
+        } else {
+          // Nada pendiente, mostrar resumen final
+          this.confirmList = [...this.stepResults];
+          this.showConfirmModal = true;
+        }
       },
       error: (err) => {
         this.toast.error(err?.error?.message || 'Error al reservar');
         this.cargarMapa();
+        this.loading = false;
+        // En error, detener flujo pero mostrar lo ya creado, si existe
+        if (this.stepResults.length) {
+          this.confirmList = [...this.stepResults];
+          this.showConfirmModal = true;
+        }
       },
-      complete: () => (this.loading = false),
     });
+  }
+
+  continueStepFlow() {
+    this.showStepModal = false;
+    this.reserveNextFromQueue();
+  }
+
+  stopStepFlow() {
+    this.showStepModal = false;
+    // Mostrar resumen con lo logrado hasta ahora (si hay)
+    if (this.stepResults.length) {
+      this.confirmList = [...this.stepResults];
+      this.showConfirmModal = true;
+    }
   }
 
   syncPassengersWithQuantity() {
@@ -291,5 +355,31 @@ export class CrearComponent implements OnInit {
       this.tipo = t;
       this.onTipoChange();
     }
+  }
+
+  formatDateTime(iso: string): string {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString('es-GT', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch {
+      return String(iso);
+    }
+  }
+  closeConfirmModal() {
+    this.showConfirmModal = false;
+    this.confirmList = [];
+  }
+
+  goToMisReservas() {
+    this.closeConfirmModal();
+    this.router.navigate(['/reservas/mis-reservas']);
+  }
+
+  goToModificar(id: number) {
+    this.closeConfirmModal();
+    this.router.navigate(['/reservas/mis-reservas'], { queryParams: { edit: id } });
   }
 }

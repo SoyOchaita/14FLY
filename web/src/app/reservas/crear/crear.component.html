@@ -133,3 +133,42 @@
 		</div>
 	</div>
 	</div>
+
+<!-- Modal de confirmación de reserva -->
+<div *ngIf="showConfirmModal" class="fixed inset-0 z-50 flex items-center justify-center">
+	<div class="absolute inset-0 bg-black/60" (click)="closeConfirmModal()"></div>
+	<div class="relative neo-card p-6 w-full max-w-lg">
+		<h4 class="text-lg font-semibold text-white mb-3">Reserva completada</h4>
+		<p class="text-softblue mb-3">Se registró {{ confirmList.length }} asiento(s):</p>
+		<ul class="space-y-2 max-h-64 overflow-auto">
+			<li *ngFor="let r of confirmList" class="flex items-center justify-between bg-white/5 rounded-lg p-3 border border-white/10">
+				<div>
+					<div class="text-white font-semibold">Asiento {{ r.seat_code }}</div>
+					<div class="text-softblue/80 text-sm">{{ formatDateTime(r.created_at) }}</div>
+				</div>
+				<button class="px-3 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="goToModificar(r.reservation_id)">Modificar</button>
+			</li>
+		</ul>
+		<div class="flex justify-end gap-3 mt-4">
+			<button class="px-4 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="closeConfirmModal()">Cerrar</button>
+			<button class="px-4 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="goToMisReservas()">Ver mis reservas</button>
+		</div>
+	</div>
+</div>
+
+<!-- Modal paso a paso: continuar con siguientes -->
+<div *ngIf="showStepModal" class="fixed inset-0 z-50 flex items-center justify-center">
+	<div class="absolute inset-0 bg-black/60" (click)="stopStepFlow()"></div>
+	<div class="relative neo-card p-6 w-full max-w-md">
+		<h4 class="text-lg font-semibold text-white mb-3">Asiento reservado</h4>
+		<div class="bg-white/5 rounded-lg p-3 border border-white/10 mb-3" *ngIf="stepLast as r">
+			<div class="text-white font-semibold">Asiento {{ r.seat_code }}</div>
+			<div class="text-softblue/80 text-sm">{{ formatDateTime(r.created_at) }}</div>
+		</div>
+		<p class="text-softblue mb-4" *ngIf="stepRemaining>0">Quedan {{ stepRemaining }} asiento(s) por reservar. ¿Deseas continuar?</p>
+		<div class="flex justify-end gap-3">
+			<button class="px-4 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="stopStepFlow()">Detener aquí</button>
+			<button class="px-4 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" *ngIf="stepRemaining>0" (click)="continueStepFlow()">Continuar</button>
+		</div>
+	</div>
+</div>
