@@ -33,6 +33,8 @@ export class MisReservasComponent implements OnInit {
   editQuote: { total: number; seatChanged: boolean; vip: boolean } | null = null;
   editSuccess: { total: number; seatChanged: boolean; vip: boolean } | null = null;
   private quoteTimer: any = null;
+  // Clase del conjunto actual para limitar el mapa
+  private editClassType: 'business' | 'economy' = 'economy';
 
   constructor(private api: ReservasService, private toast: ToastService, private route: ActivatedRoute, public router: Router) {}
 
@@ -89,8 +91,12 @@ export class MisReservasComponent implements OnInit {
         }));
         // Índice por código
         this.seatIndex = new Map(this.allSeats.map((s) => [s.seat_number, s]));
+        // Determinar clase (Negocios/Económica) y tipo ('business'|'economy')
+        const currentSeat = this.seatIndex.get(r.seat_code);
+        const className = (currentSeat?.seat_class || r.seat_class || '').toString();
+        this.editClassType = this.seatClassToType(className);
         // Disponibles para cambiar (incluye el actual)
-        this.availableSeats = this.allSeats.filter((s: any) => !s.is_occupied || s.seat_number === r.seat_code);
+        this.availableSeats = this.allSeats.filter((s: any) => (s.seat_class === className) && (!s.is_occupied || s.seat_number === r.seat_code));
         // Generar previsualización inicial
         this.triggerQuote();
       },
@@ -146,12 +152,21 @@ export class MisReservasComponent implements OnInit {
   }
 
   // Seat map helpers (usar layout general de Económica para mostrar todo)
-  get colOrder(): number[] { return [3, 4, 5, 6, 7]; }
-  get rowGroups(): string[][] { return [['I', 'H', 'G'], ['F', 'E', 'D'], ['C', 'B', 'A']]; }
+  get colOrder(): number[] {
+    return this.editClassType === 'business' ? [1, 2] : [3, 4, 5, 6, 7];
+  }
+  get rowGroups(): string[][] {
+    return this.editClassType === 'business'
+      ? [['I', 'G'], ['F', 'D'], ['C', 'A']]
+      : [['I', 'H', 'G'], ['F', 'E', 'D'], ['C', 'B', 'A']];
+  }
   getSeat(row: string, col: number): { code: string; available: boolean } | null {
     const code = `${row}${col}`;
     const s = this.seatIndex.get(code);
     if (!s) return null;
+    // Filtrar por clase: solo mostrar asientos de la misma clase de la reserva actual
+    const targetClassName = this.currentClassLabel || this.editModel?.seat_class || '';
+    if (s.seat_class !== targetClassName) return null;
     const currentCode = this.editModel?.seat_code;
     const isAvailable = !s.is_occupied || s.seat_number === currentCode;
     return { code, available: isAvailable };
@@ -207,5 +222,11 @@ export class MisReservasComponent implements OnInit {
     const code = this.editModel.new_seat_code || this.editModel.seat_code;
     const s = this.seatIndex.get(code);
     return s?.seat_class || '';
+  }
+
+  private seatClassToType(name: string): 'business' | 'economy' {
+    const n = (name || '').toLowerCase();
+    if (n.includes('negocio')) return 'business';
+    return 'economy';
   }
 }
