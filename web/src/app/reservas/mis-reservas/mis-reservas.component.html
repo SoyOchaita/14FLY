@@ -4,7 +4,7 @@
     <div class="neo-card p-5 border" *ngFor="let g of grupos">
       <div class="flex items-center justify-between mb-3">
         <div>
-          <div class="text-white font-semibold">Conjunto {{ g.batch_id.startsWith('single-') ? 'individual' : (g.batch_id | slice:0:8) }}</div>
+          <div class="text-white font-semibold">Conjunto</div>
           <div class="text-softblue/80 text-sm">{{ g.created_at | date:'medium' }} · {{ g.count }} reserva(s)</div>
         </div>
         <div class="text-sm text-softblue/80">
@@ -21,6 +21,7 @@
             <span class="text-xs text-softblue/70">{{ r.created_at | date:'short' }}</span>
           </div>
           <div class="text-softblue text-sm">Pasajero: <span class="text-white">{{ r.full_name }}</span></div>
+          <div class="text-softblue text-sm">Clase: <span class="text-white">{{ r.seat_class }}</span></div>
           <div class="text-softblue text-sm mb-3">CUI: <span class="text-white">{{ r.cui }}</span> · Maleta: <span class="text-white">{{ r.has_bag ? 'Sí' : 'No' }}</span></div>
           <div class="flex gap-2 justify-end">
             <button class="px-3 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="openEdit(r)">Modificar</button>
@@ -48,7 +49,7 @@
         · Cambio de asiento: <span class="font-semibold">{{ editSuccess.seatChanged ? 'Sí' : 'No' }}</span>
         · VIP: <span class="font-semibold">{{ editSuccess.vip ? 'Sí' : 'No' }}</span>
       </div>
-      <div class="text-softblue mb-2">Actual: <span class="text-white font-semibold">{{ editModel?.seat_code }}</span></div>
+  <div class="text-softblue mb-2">Actual: <span class="text-white font-semibold">{{ editModel?.seat_code }}</span> <span class="ml-2 text-softblue/80 text-sm">Clase: <span class="text-white">{{ currentClassLabel }}</span></span></div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <!-- Mapa de asientos -->
         <div class="md:col-span-2">
@@ -94,6 +95,7 @@
             <input type="checkbox" [(ngModel)]="editModel!.has_bag" (change)="onToggleBag()" />
             ¿Incluye maleta?
           </label>
+          <div class="text-softblue text-sm mt-3">Nueva clase: <span class="text-white">{{ newClassLabel || currentClassLabel }}</span></div>
           <!-- Previsualización -->
           <div *ngIf="editQuote" class="mt-3 p-3 rounded-lg bg-white/5 border border-white/10 text-softblue text-sm">
             Previsualización: <span class="text-white font-semibold">{{ editQuote.total | number:'1.2-2' }}</span>

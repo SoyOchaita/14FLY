@@ -24,7 +24,7 @@ export class MisReservasComponent implements OnInit {
   highlightId: number | null = null;
   // Modal edición
   showEditModal = false;
-  editModel: { id: number; seat_code: string; has_bag: boolean; new_seat_code: string | null; full_name: string; cui: string } | null = null;
+  editModel: { id: number; seat_code: string; has_bag: boolean; new_seat_code: string | null; full_name: string; cui: string; seat_class?: string } | null = null;
   editError: string | null = null;
   availableSeats: Array<{ seat_id: number; seat_number: string; seat_class: string; is_occupied?: boolean }> = [];
   allSeats: Array<{ seat_id: number; seat_number: string; seat_class: string; is_occupied: boolean }> = [];
@@ -73,7 +73,7 @@ export class MisReservasComponent implements OnInit {
   }
 
   openEdit(r: any) {
-    this.editModel = { id: r.reservation_id, seat_code: r.seat_code, has_bag: !!r.has_bag, new_seat_code: r.seat_code, full_name: r.full_name, cui: r.cui };
+    this.editModel = { id: r.reservation_id, seat_code: r.seat_code, has_bag: !!r.has_bag, new_seat_code: r.seat_code, full_name: r.full_name, cui: r.cui, seat_class: r.seat_class };
     this.editError = null;
     this.editQuote = null;
     this.editSuccess = null;
@@ -203,5 +203,18 @@ export class MisReservasComponent implements OnInit {
         }
       });
     }, 300);
+  }
+
+  get currentClassLabel(): string {
+    if (!this.editModel) return '';
+    const cur = this.seatIndex.get(this.editModel.seat_code);
+    return cur?.seat_class || this.editModel.seat_class || '';
+  }
+
+  get newClassLabel(): string {
+    if (!this.editModel) return '';
+    const code = this.editModel.new_seat_code || this.editModel.seat_code;
+    const s = this.seatIndex.get(code);
+    return s?.seat_class || '';
   }
 }
