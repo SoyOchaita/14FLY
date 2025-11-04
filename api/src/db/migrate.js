@@ -43,6 +43,8 @@ async function main() {
     await migrateColumnToTimestamptz("reservations", "reservation_date", true);
     await migrateColumnToTimestamptz("reservations", "modified_at", true);
     await migrateColumnToTimestamptz("users", "created_at", true);
+    // Agregar batch_id para agrupar reservas
+    await pool.query(`ALTER TABLE ${schema}."reservations" ADD COLUMN IF NOT EXISTS batch_id text`);
   } catch (err) {
     console.error("Migration error:", err);
     process.exitCode = 1;

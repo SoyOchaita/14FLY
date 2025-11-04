@@ -37,6 +37,7 @@ export class CrearComponent implements OnInit {
   showStepModal = false;
   stepLast: { reservation_id: number; seat_code: string; created_at: string } | null = null;
   stepRemaining = 0;
+  private currentBatchId: string | null = null;
   // Disponibilidad por clase
   private availableByClass: { business: number; economy: number } = { business: 0, economy: 0 };
   // Advertencia si el usuario intenta exceder la disponibilidad
@@ -119,6 +120,7 @@ export class CrearComponent implements OnInit {
     if (!this.canConfirm) return;
     if (this.seleccionados.length < this.cantidad) return this.toast.warning('Selecciona todos los asientos requeridos.');
     // Iniciar flujo paso a paso cuando hay más de 1
+    this.currentBatchId = crypto?.randomUUID ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2));
     this.stepQueue = [...this.seleccionados];
     this.stepResults = [];
     this.stepLast = null;
@@ -136,7 +138,7 @@ export class CrearComponent implements OnInit {
     }
     const nextSeat = this.stepQueue.shift()!;
     this.loading = true;
-    const payload = { seats: [nextSeat] };
+  const payload = { seats: [nextSeat], batch_id: this.currentBatchId };
     this.reservas.createReservation(payload).subscribe({
       next: (res) => {
         const created = Array.isArray(res?.data) ? res.data : [];

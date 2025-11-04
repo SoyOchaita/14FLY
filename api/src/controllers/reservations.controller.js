@@ -1,4 +1,5 @@
 import { pool } from "../db/pool.js";
+import { randomUUID } from "crypto";
 import { ok, HttpError } from "../utils/response.js";
 import { validateCUI, validateFullName } from "../utils/validators.js";
 
@@ -11,7 +12,8 @@ export const createReservation = async (req, res) => {
     const uid = req.user.id;
     const { seats, quantity, seatClass, selectionMode, seatsData } = req.body || {};
 
-    await client.query("BEGIN");
+  await client.query("BEGIN");
+  const batchId = (req.body && req.body.batch_id) ? String(req.body.batch_id) : randomUUID();
     const created = [];
 
     // Caso 1: payload con arreglo de seats [{ code, full_name, cui, has_bag }]
@@ -42,13 +44,13 @@ export const createReservation = async (req, res) => {
         );
 
         const ins = await client.query(
-          `INSERT INTO reservations(user_id, seat_id, passenger_id, has_luggage, price_base, discount, modification_fee, total_price)
-           VALUES ($1, $2, $3, $4, 0, 0, 0, 0)
+          `INSERT INTO reservations(user_id, seat_id, passenger_id, has_luggage, price_base, discount, modification_fee, total_price, batch_id)
+           VALUES ($1, $2, $3, $4, 0, 0, 0, 0, $5)
            RETURNING reservation_id, reservation_date`,
-          [uid, seat_id, paxRes.rows[0].passenger_id, hasBag]
+          [uid, seat_id, paxRes.rows[0].passenger_id, hasBag, batchId]
         );
 
-        created.push({ reservation_id: ins.rows[0].reservation_id, seat_code: seat_number, created_at: ins.rows[0].reservation_date });
+        created.push({ reservation_id: ins.rows[0].reservation_id, seat_code: seat_number, created_at: ins.rows[0].reservation_date, batch_id: batchId });
       }
     }
     // Caso 2: selección aleatoria por clase y cantidad
@@ -97,20 +99,20 @@ export const createReservation = async (req, res) => {
         );
 
         const ins = await client.query(
-          `INSERT INTO reservations(user_id, seat_id, passenger_id, has_luggage, price_base, discount, modification_fee, total_price)
-           VALUES ($1, $2, $3, $4, 0, 0, 0, 0)
+          `INSERT INTO reservations(user_id, seat_id, passenger_id, has_luggage, price_base, discount, modification_fee, total_price, batch_id)
+           VALUES ($1, $2, $3, $4, 0, 0, 0, 0, $5)
            RETURNING reservation_id, reservation_date`,
-          [uid, seat_id, paxRes.rows[0].passenger_id, hasBag]
+          [uid, seat_id, paxRes.rows[0].passenger_id, hasBag, batchId]
         );
 
-        created.push({ reservation_id: ins.rows[0].reservation_id, seat_code: seat_number, created_at: ins.rows[0].reservation_date });
+        created.push({ reservation_id: ins.rows[0].reservation_id, seat_code: seat_number, created_at: ins.rows[0].reservation_date, batch_id: batchId });
       }
     } else {
       throw new HttpError("Estructura de solicitud inválida. Proporcione 'seats' o 'selectionMode=random' con 'quantity' y 'seatClass'.", 400);
     }
 
     await client.query("COMMIT");
-    return res.json({ success: true, message: "Reservas realizadas correctamente.", data: created });
+    return res.json({ success: true, message: "Reservas realizadas correctamente.", data: created, batch_id: batchId });
   } catch (err) {
     await client.query("ROLLBACK");
     const status = err.status || 500;
@@ -125,9 +127,10 @@ export const getMyReservations = async (req, res) => {
     if (!req.user || !req.user.id) throw new HttpError("No autenticado", 401);
     const result = await pool.query(
       `SELECT r.reservation_id, r.reservation_date AS created_at,
-              s.seat_number AS seat_code,
+              s.seat_number AS seat_code, s.seat_class,
               p.full_name, p.cui,
-              r.has_luggage AS has_bag
+              r.has_luggage AS has_bag,
+              r.batch_id
          FROM reservations r
          JOIN seats s ON s.seat_id = r.seat_id
          JOIN passengers p ON p.passenger_id = r.passenger_id

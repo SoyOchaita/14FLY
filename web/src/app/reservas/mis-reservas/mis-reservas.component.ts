@@ -13,7 +13,14 @@ import { ToastService } from '../../ui/toast/toast.service';
   styleUrl: './mis-reservas.component.scss'
 })
 export class MisReservasComponent implements OnInit {
-  reservas: Array<{ reservation_id: number; seat_code: string; created_at: string; full_name: string; cui: string; has_bag: boolean }> = [];
+  reservas: Array<{ reservation_id: number; seat_code: string; created_at: string; full_name: string; cui: string; has_bag: boolean; batch_id?: string | null; seat_class?: string }> = [];
+  grupos: Array<{
+    batch_id: string;
+    created_at: string; // del primer item
+    count: number;
+    classes: string[]; // únicas
+    items: any[];
+  }> = [];
   highlightId: number | null = null;
   // Modal edición
   showEditModal = false;
@@ -35,12 +42,34 @@ export class MisReservasComponent implements OnInit {
       this.highlightId = edit ? Number(edit) : null;
     });
     this.api.getMyReservations().subscribe({
-      next: (res) => (this.reservas = res.data || []),
+      next: (res) => {
+        this.reservas = res.data || [];
+        this.buildGroups();
+      },
       error: (err) => {
         const msg = err?.error?.message || 'No se pudieron cargar tus reservas.';
         this.toast.error(msg);
       }
     });
+  }
+
+  private buildGroups() {
+    const map = new Map<string, any[]>();
+    for (const r of this.reservas) {
+      const key = r.batch_id || `single-${r.reservation_id}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(r);
+    }
+    const groups: any[] = [];
+    for (const [key, list] of map.entries()) {
+      // Ordenar por fecha desc ya viene así; tomar la más reciente como encabezado
+      const created_at = list[0]?.created_at || '';
+      const classes = Array.from(new Set(list.map((x: any) => x.seat_class).filter(Boolean)));
+      groups.push({ batch_id: key, created_at, count: list.length, classes, items: list });
+    }
+    // Ordenar grupos por fecha desc (primer item)
+    groups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    this.grupos = groups;
   }
 
   openEdit(r: any) {

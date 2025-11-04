@@ -1,15 +1,31 @@
 <section class="p-6">
   <h1 class="text-2xl font-semibold text-white mb-4">Mis reservas</h1>
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6" *ngIf="reservas.length; else empty">
-    <div class="neo-card p-6 border transition" [ngClass]="{ 'ring-2 ring-softblue': highlightId===r.reservation_id }" *ngFor="let r of reservas">
-      <div class="flex items-center justify-between mb-2">
-    <span class="text-lg text-white">Asiento {{ r.seat_code }}</span>
-    <span class="text-sm text-softblue/80">{{ r.created_at | date:'medium' }}</span>
+  <div class="space-y-6" *ngIf="grupos.length; else empty">
+    <div class="neo-card p-5 border" *ngFor="let g of grupos">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <div class="text-white font-semibold">Conjunto {{ g.batch_id.startsWith('single-') ? 'individual' : (g.batch_id | slice:0:8) }}</div>
+          <div class="text-softblue/80 text-sm">{{ g.created_at | date:'medium' }} · {{ g.count }} reserva(s)</div>
+        </div>
+        <div class="text-sm text-softblue/80">
+          Clase:
+          <span class="text-white font-medium" *ngIf="g.classes.length===1">{{ g.classes[0] }}</span>
+          <span class="text-white font-medium" *ngIf="g.classes.length>1">Varias ({{ g.classes.join(' / ') }})</span>
+          <span class="text-white font-medium" *ngIf="!g.classes.length">—</span>
+        </div>
       </div>
-      <div class="text-softblue mb-1">Pasajero: <span class="text-white">{{ r.full_name }}</span></div>
-      <div class="text-softblue mb-4">CUI: <span class="text-white">{{ r.cui }}</span> · Maleta: <span class="text-white">{{ r.has_bag ? 'Sí' : 'No' }}</span></div>
-      <div class="flex gap-3">
-        <button class="px-3 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="openEdit(r)">Modificar</button>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="p-4 rounded-lg bg-white/5 border border-white/10 transition" [ngClass]="{ 'ring-2 ring-softblue': highlightId===r.reservation_id }" *ngFor="let r of g.items">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-white font-semibold">Asiento {{ r.seat_code }}</span>
+            <span class="text-xs text-softblue/70">{{ r.created_at | date:'short' }}</span>
+          </div>
+          <div class="text-softblue text-sm">Pasajero: <span class="text-white">{{ r.full_name }}</span></div>
+          <div class="text-softblue text-sm mb-3">CUI: <span class="text-white">{{ r.cui }}</span> · Maleta: <span class="text-white">{{ r.has_bag ? 'Sí' : 'No' }}</span></div>
+          <div class="flex gap-2 justify-end">
+            <button class="px-3 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="openEdit(r)">Modificar</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
