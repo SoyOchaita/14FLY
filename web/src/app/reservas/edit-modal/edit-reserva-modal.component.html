@@ -59,6 +59,7 @@
           </div>
           <div class="mt-2 space-y-1">
             <div class="flex justify-between"><span>Base</span><span class="text-emerald-400 font-semibold">Q {{ basePrice | number:'1.2-2' }}</span></div>
+            <div class="flex justify-between" *ngIf="accumulatedFee > 0"><span>+ Acumulado cambios previos</span><span class="text-amber-300 font-semibold">Q {{ accumulatedFee | number:'1.2-2' }}</span></div>
             <div class="flex justify-between" *ngIf="editQuote.seatChanged"><span>+ 10% por cambio</span><span class="text-amber-300 font-semibold">Q {{ changeFee | number:'1.2-2' }}</span></div>
             <div class="flex justify-between" *ngIf="editQuote.vip"><span>- 10% VIP</span><span class="text-fuchsia-300 font-semibold">- Q {{ vipDiscount | number:'1.2-2' }}</span></div>
             <div class="border-t border-white/10 pt-2 flex justify-between text-white font-bold text-base">

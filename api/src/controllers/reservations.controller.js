@@ -177,8 +177,9 @@ export const updateReservation = async (req, res) => {
     // Obtener clase base de la reserva actual
     const prevSeat = await pool.query("SELECT seat_class FROM seats WHERE seat_id=$1", [prev.seat_id]);
     const prevClass = prevSeat.rows[0]?.seat_class || '';
-    let base = basePriceForClass(prevClass);
-    let total = base;
+  let base = basePriceForClass(prevClass);
+  const prevFee = Number(prev.modification_fee || 0);
+  let total = base + prevFee;
     const seatChanged = seat_id && Number(seat_id) !== prev.seat_id;
     if (seatChanged) {
       // Validar nuevo asiento disponible y clase
@@ -189,8 +190,8 @@ export const updateReservation = async (req, res) => {
       if (String(newClass).toLowerCase() !== String(prevClass).toLowerCase()) {
         throw new HttpError("Solo puede cambiar dentro de la misma clase.", 400);
       }
-      // +10% por cambio de asiento
-      total = base * 1.10;
+      // +10% por cambio de asiento (acumulativo)
+      total = base + prevFee + (base * 0.10);
     }
 
     // VIP descuento 10%
@@ -217,16 +218,17 @@ export const updateReservation = async (req, res) => {
       newPassengerId = paxRes.rows[0].passenger_id;
     }
 
+    const newFee = seatChanged ? prevFee + base * 0.10 : prevFee;
     await pool.query(
-      "UPDATE reservations SET seat_id=COALESCE($1, seat_id), price_base=$2, has_luggage=COALESCE($3, has_luggage), total_price=$4, passenger_id=COALESCE($5, passenger_id) WHERE reservation_id=$6",
-      [seat_id || null, base, typeof has_luggage === 'boolean' ? has_luggage : null, total, newPassengerId, id]
+      "UPDATE reservations SET seat_id=COALESCE($1, seat_id), price_base=$2, modification_fee=$3, has_luggage=COALESCE($4, has_luggage), total_price=$5, passenger_id=COALESCE($6, passenger_id) WHERE reservation_id=$7",
+      [seat_id || null, base, newFee, typeof has_luggage === 'boolean' ? has_luggage : null, total, newPassengerId, id]
     );
     if (seatChanged) {
       await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id=$1", [prev.seat_id]);
       await pool.query("UPDATE seats SET is_occupied=true WHERE seat_id=$1", [seat_id]);
     }
 
-    return ok(res, "Reserva actualizada", { reservation_id: Number(id), total, base, seatChanged, vip });
+    return ok(res, "Reserva actualizada", { reservation_id: Number(id), total, base, seatChanged, vip, fee_accumulated: newFee, fee_added: seatChanged ? base * 0.10 : 0 });
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });
@@ -250,10 +252,11 @@ export const quoteReservation = async (req, res) => {
     const prevSeat = await pool.query("SELECT seat_class FROM seats WHERE seat_id=$1", [prev.seat_id]);
     const prevClass = prevSeat.rows[0]?.seat_class || '';
     const base = basePriceForClass(prevClass);
-    let total = base;
+    const prevFee = Number(prev.modification_fee || 0);
+    let total = base + prevFee;
     const seatChanged = seat_id && Number(seat_id) !== prev.seat_id;
     if (seatChanged) {
-      total = base * 1.10; // 10% por cambio de asiento
+      total = base + prevFee + (base * 0.10); // suma el acumulado y el 10% de esta modificación
       // Validar que el asiento potencial esté libre y misma clase
       const seatQ = await pool.query("SELECT is_occupied, seat_class FROM seats WHERE seat_id=$1", [seat_id]);
       if (!seatQ.rows.length) throw new HttpError("Asiento no existe", 404);
@@ -266,10 +269,10 @@ export const quoteReservation = async (req, res) => {
     // VIP descuento 10% por historial
     const r = await pool.query("SELECT COUNT(*)::int AS cnt FROM reservations WHERE user_id=$1", [uid]);
     const vip = (r.rows[0]?.cnt || 0) >= 5;
-    if (vip) total = total * 0.9;
+  if (vip) total = total * 0.9;
 
     // Nota: has_luggage no afecta total actualmente; se incluye para futura lógica.
-    return ok(res, "Cotización de cambio", { reservation_id: Number(id), total, base, seatChanged: !!seatChanged, vip, has_luggage: typeof has_luggage === 'boolean' ? has_luggage : undefined });
+    return ok(res, "Cotización de cambio", { reservation_id: Number(id), total, base, seatChanged: !!seatChanged, vip, fee_accumulated: prevFee, fee_added: seatChanged ? base * 0.10 : 0, has_luggage: typeof has_luggage === 'boolean' ? has_luggage : undefined });
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });

@@ -17,7 +17,7 @@ export class EditReservaModalComponent {
 
   editModel: { id: number; seat_code: string; new_seat_code: string | null; has_bag: boolean; full_name: string; cui: string; seat_class?: string } | null = null;
   editError: string | null = null;
-  editQuote: { base: number; total: number; seatChanged: boolean; vip: boolean } | null = null;
+  editQuote: { base: number; total: number; seatChanged: boolean; vip: boolean; prevFee: number; addedFee: number } | null = null;
 
   allSeats: Array<{ seat_id: number; seat_number: string; seat_class: string; is_occupied: boolean }> = [];
   availableSeats: Array<{ seat_id: number; seat_number: string; seat_class: string; is_occupied: boolean }> = [];
@@ -114,7 +114,7 @@ export class EditReservaModalComponent {
       this.api.quoteReservation(m.id, { seat_id, has_luggage: !!m.has_bag }).subscribe({
         next: (res) => {
           const d = res?.data || {};
-          this.editQuote = { base: Number(d.base || 0), total: Number(d.total || 0), seatChanged: !!d.seatChanged, vip: !!d.vip };
+          this.editQuote = { base: Number(d.base || 0), total: Number(d.total || 0), seatChanged: !!d.seatChanged, vip: !!d.vip, prevFee: Number(d.fee_accumulated || 0), addedFee: Number(d.fee_added || 0) };
         },
         error: () => { this.editQuote = null; }
       });
@@ -127,6 +127,7 @@ export class EditReservaModalComponent {
     if (!this.editQuote) return 0;
     return this.editQuote.seatChanged ? Math.round(this.basePrice * 0.10 * 100) / 100 : 0;
   }
+  get accumulatedFee(): number { return this.editQuote ? Math.round(this.editQuote.prevFee * 100) / 100 : 0; }
   get vipDiscount(): number {
     if (!this.editQuote || !this.editQuote.vip) return 0;
     const subTotal = this.basePrice + this.changeFee;

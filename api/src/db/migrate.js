@@ -43,8 +43,26 @@ async function main() {
     await migrateColumnToTimestamptz("reservations", "reservation_date", true);
     await migrateColumnToTimestamptz("reservations", "modified_at", true);
     await migrateColumnToTimestamptz("users", "created_at", true);
-    // Agregar batch_id para agrupar reservas
+    // Agregar columnas que usamos si no existen
     await pool.query(`ALTER TABLE ${schema}."reservations" ADD COLUMN IF NOT EXISTS batch_id text`);
+    await pool.query(`ALTER TABLE ${schema}."reservations" ADD COLUMN IF NOT EXISTS price_base numeric`);
+    await pool.query(`ALTER TABLE ${schema}."reservations" ADD COLUMN IF NOT EXISTS discount numeric`);
+    await pool.query(`ALTER TABLE ${schema}."reservations" ADD COLUMN IF NOT EXISTS modification_fee numeric DEFAULT 0`);
+    await pool.query(`ALTER TABLE ${schema}."reservations" ADD COLUMN IF NOT EXISTS total_price numeric`);
+
+    // Backfill de precios base y totales para reservas antiguas
+    const business = Number(process.env.BUSINESS_PRICE || 1500);
+    const economy = Number(process.env.ECONOMY_PRICE || 500);
+    await pool.query(
+    `UPDATE ${schema}."reservations" r
+      SET price_base = CASE WHEN s.seat_class = 'Negocios' THEN $1::numeric ELSE $2::numeric END
+        FROM ${schema}."seats" s
+       WHERE r.seat_id = s.seat_id
+         AND (r.price_base IS NULL OR r.price_base = 0)`,
+      [business, economy]
+    );
+    await pool.query(`UPDATE ${schema}."reservations" SET modification_fee = 0 WHERE modification_fee IS NULL`);
+    await pool.query(`UPDATE ${schema}."reservations" SET total_price = price_base WHERE (total_price IS NULL OR total_price = 0) AND price_base IS NOT NULL`);
   } catch (err) {
     console.error("Migration error:", err);
     process.exitCode = 1;
