@@ -30,7 +30,7 @@ export class CrearComponent implements OnInit {
   modalExceeded = false;
   // Modal de confirmación
   showConfirmModal = false;
-  confirmList: Array<{ reservation_id: number; seat_code: string; created_at: string }> = [];
+  confirmList: Array<{ reservation_id: number; seat_code: string; created_at: string; total?: number }> = [];
   // Modal de edición inline desde confirmación
   showInlineEdit = false;
   inlineEditReserva: { reservation_id: number; seat_code: string; full_name: string; cui: string; has_bag: boolean; seat_class?: string } | null = null;
@@ -38,9 +38,9 @@ export class CrearComponent implements OnInit {
 
   // Flujo paso a paso (confirmar después de cada reserva)
   stepQueue: Array<{ code: string; full_name: string; cui: string; has_bag: boolean }> = [];
-  stepResults: Array<{ reservation_id: number; seat_code: string; created_at: string }> = [];
+  stepResults: Array<{ reservation_id: number; seat_code: string; created_at: string; total?: number }> = [];
   showStepModal = false;
-  stepLast: { reservation_id: number; seat_code: string; created_at: string } | null = null;
+  stepLast: { reservation_id: number; seat_code: string; created_at: string; total?: number } | null = null;
   stepRemaining = 0;
   private currentBatchId: string | null = null;
   // Disponibilidad por clase

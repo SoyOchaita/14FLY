@@ -26,12 +26,14 @@
                 <ng-container *ngIf="getSeat(r, c) as seat; else emptyCell">
                   <div (click)="onSelectSeat(seat.code)"
                        [ngClass]="{
-                         'bg-red-500': !seat.available && !isChosen(seat.code) && (editModel?.seat_code !== seat.code),
-                         'bg-yellow-400': seat.available && isChosen(seat.code),
-                         'bg-green-400': seat.available && !isChosen(seat.code)
+                         'bg-blue-500 ring-2 ring-blue-300': seat.code === editModel?.seat_code,
+                         'bg-red-500': seat.code !== editModel?.seat_code && !seat.available && !isChosen(seat.code),
+                         'bg-yellow-400': seat.code !== editModel?.seat_code && seat.available && isChosen(seat.code),
+                         'bg-green-400': seat.code !== editModel?.seat_code && seat.available && !isChosen(seat.code)
                        }"
-                       class="w-10 h-10 rounded-lg text-center text-white font-semibold cursor-pointer transition-all hover:scale-105 select-none flex items-center justify-center font-mono">
+                       class="relative w-10 h-10 rounded-lg text-center text-white font-semibold cursor-pointer transition-all hover:scale-105 select-none flex items-center justify-center font-mono">
                     {{ seat.code }}
+                    <span *ngIf="seat.code === editModel?.seat_code" class="absolute -top-1 -right-1 text-[10px] px-1 rounded bg-white/90 text-blue-700 font-bold">ACTUAL</span>
                   </div>
                 </ng-container>
                 <ng-template #emptyCell>
@@ -41,7 +43,7 @@
             </div>
           </div>
         </div>
-        <p class="text-softblue/80 text-xs mt-2">Verde: disponible · Amarillo: seleccionado · Rojo: ocupado</p>
+        <p class="text-softblue/80 text-xs mt-2">Azul: asiento actual · Verde: disponible · Amarillo: seleccionado · Rojo: ocupado</p>
       </div>
 
       <div class="md:col-span-1">
@@ -50,9 +52,20 @@
           ¿Incluye maleta?
         </label>
         <div class="text-softblue text-sm mt-3">Nueva clase: <span class="text-white">{{ newClassLabel || currentClassLabel }}</span></div>
-        <div *ngIf="editQuote" class="mt-3 p-3 rounded-lg bg-white/5 border border-white/10 text-softblue text-sm">
-          Previsualización: <span class="text-white font-semibold">{{ editQuote.total | number:'1.2-2' }}</span>
-          <div class="text-xs mt-1">Cambio de asiento: <span class="text-white">{{ editQuote.seatChanged ? 'Sí' : 'No' }}</span> · VIP: <span class="text-white">{{ editQuote.vip ? 'Sí' : 'No' }}</span></div>
+        <div *ngIf="editQuote" class="mt-3 p-3 rounded-xl bg-white/5 border border-white/10 text-softblue text-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-white/90 font-semibold">Desglose</span>
+            <span class="text-xs text-softblue/70">Cambiar asiento implica +10%</span>
+          </div>
+          <div class="mt-2 space-y-1">
+            <div class="flex justify-between"><span>Base</span><span class="text-emerald-400 font-semibold">Q {{ basePrice | number:'1.2-2' }}</span></div>
+            <div class="flex justify-between" *ngIf="editQuote.seatChanged"><span>+ 10% por cambio</span><span class="text-amber-300 font-semibold">Q {{ changeFee | number:'1.2-2' }}</span></div>
+            <div class="flex justify-between" *ngIf="editQuote.vip"><span>- 10% VIP</span><span class="text-fuchsia-300 font-semibold">- Q {{ vipDiscount | number:'1.2-2' }}</span></div>
+            <div class="border-t border-white/10 pt-2 flex justify-between text-white font-bold text-base">
+              <span>Total</span>
+              <span>Q {{ previewTotal | number:'1.2-2' }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

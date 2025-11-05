@@ -43,4 +43,8 @@ export class ReservasService {
     const qs = q.toString();
     return this.http.get<any>(`${this.api}/reservations/${id}/quote${qs ? `?${qs}` : ''}`);
   }
+
+  lookupReservationByCuiAndSeat(payload: { cui: string; seat_code: string }): Observable<any> {
+    return this.http.post<any>(`${this.api}/reservations/lookup`, payload);
+  }
 }

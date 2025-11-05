@@ -13,12 +13,14 @@ import { ToastService } from '../../ui/toast/toast.service';
   styleUrl: './mis-reservas.component.scss'
 })
 export class MisReservasComponent implements OnInit {
-  reservas: Array<{ reservation_id: number; seat_code: string; created_at: string; full_name: string; cui: string; has_bag: boolean; batch_id?: string | null; seat_class?: string }> = [];
+  reservas: Array<{ reservation_id: number; seat_code: string; created_at: string; full_name: string; cui: string; has_bag: boolean; batch_id?: string | null; seat_class?: string; total?: number; price_base?: number }> = [];
   grupos: Array<{
     batch_id: string;
     created_at: string; // del primer item
     count: number;
     classes: string[]; // únicas
+    sum_base: number;
+    sum_total: number;
     items: any[];
   }> = [];
   highlightId: number | null = null;
@@ -30,7 +32,7 @@ export class MisReservasComponent implements OnInit {
   allSeats: Array<{ seat_id: number; seat_number: string; seat_class: string; is_occupied: boolean }> = [];
   private seatIndex: Map<string, { seat_id: number; seat_number: string; seat_class: string; is_occupied: boolean }> = new Map();
   // Previsualización y resultado
-  editQuote: { total: number; seatChanged: boolean; vip: boolean } | null = null;
+  editQuote: { base: number; total: number; seatChanged: boolean; vip: boolean } | null = null;
   editSuccess: { total: number; seatChanged: boolean; vip: boolean } | null = null;
   private quoteTimer: any = null;
   // Clase del conjunto actual para limitar el mapa
@@ -67,7 +69,9 @@ export class MisReservasComponent implements OnInit {
       // Ordenar por fecha desc ya viene así; tomar la más reciente como encabezado
       const created_at = list[0]?.created_at || '';
       const classes = Array.from(new Set(list.map((x: any) => x.seat_class).filter(Boolean)));
-      groups.push({ batch_id: key, created_at, count: list.length, classes, items: list });
+      const sum_base = list.reduce((acc: number, it: any) => acc + Number(it?.price_base || 0), 0);
+      const sum_total = list.reduce((acc: number, it: any) => acc + Number(it?.total || 0), 0);
+      groups.push({ batch_id: key, created_at, count: list.length, classes, sum_base, sum_total, items: list });
     }
     // Ordenar grupos por fecha desc (primer item)
     groups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -202,13 +206,30 @@ export class MisReservasComponent implements OnInit {
       this.api.quoteReservation(model.id, { seat_id, has_luggage: !!model.has_bag }).subscribe({
         next: (res) => {
           const d = res?.data || {};
-          this.editQuote = { total: d.total, seatChanged: !!d.seatChanged, vip: !!d.vip };
+          this.editQuote = { base: Number(d.base || 0), total: Number(d.total || 0), seatChanged: !!d.seatChanged, vip: !!d.vip };
         },
         error: () => {
           this.editQuote = null;
         }
       });
     }, 300);
+  }
+
+  // Desglose para mostrar 10% y VIP
+  get basePrice(): number { return this.editQuote ? this.editQuote.base : 0; }
+  get changeFee(): number {
+    if (!this.editQuote) return 0;
+    return this.editQuote.seatChanged ? Math.round(this.basePrice * 0.10 * 100) / 100 : 0;
+  }
+  get vipDiscount(): number {
+    if (!this.editQuote || !this.editQuote.vip) return 0;
+    const sub = this.basePrice + this.changeFee;
+    return Math.round(sub * 0.10 * 100) / 100;
+  }
+  get previewTotal(): number {
+    if (!this.editQuote) return 0;
+    const calc = Math.round(((this.basePrice + this.changeFee) - this.vipDiscount) * 100) / 100;
+    return Number.isFinite(calc) ? calc : this.editQuote.total;
   }
 
   get currentClassLabel(): string {

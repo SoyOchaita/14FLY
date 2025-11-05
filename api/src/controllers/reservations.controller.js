@@ -3,6 +3,14 @@ import { randomUUID } from "crypto";
 import { ok, HttpError } from "../utils/response.js";
 import { validateCUI, validateFullName } from "../utils/validators.js";
 
+// Precios base por clase (configurables vía ENV)
+const BUSINESS_PRICE = Number(process.env.BUSINESS_PRICE || 1500);
+const ECONOMY_PRICE = Number(process.env.ECONOMY_PRICE || 500);
+function basePriceForClass(seatClassName) {
+  const sc = String(seatClassName || '').toLowerCase();
+  return sc.includes('negocio') ? BUSINESS_PRICE : ECONOMY_PRICE;
+}
+
 // POST /api/reservations
 // Body: { seats: [{ code, full_name, cui, has_bag }] }
 export const createReservation = async (req, res) => {
@@ -35,7 +43,11 @@ export const createReservation = async (req, res) => {
           [code]
         );
         if (!seatRes.rows.length) throw new HttpError(`Asiento ${code} no disponible.`, 409);
-        const { seat_id, seat_number } = seatRes.rows[0];
+  const { seat_id, seat_number } = seatRes.rows[0];
+  // Obtener clase del asiento para fijar precio base
+  const seatInfo = await client.query("SELECT seat_class FROM seats WHERE seat_id=$1", [seat_id]);
+  const seatClassName = seatInfo.rows[0]?.seat_class || '';
+  const priceBase = basePriceForClass(seatClassName);
 
         const paxRes = await client.query(
           `INSERT INTO passengers(full_name, cui)
@@ -47,12 +59,12 @@ export const createReservation = async (req, res) => {
 
         const ins = await client.query(
           `INSERT INTO reservations(user_id, seat_id, passenger_id, has_luggage, price_base, discount, modification_fee, total_price, batch_id)
-           VALUES ($1, $2, $3, $4, 0, 0, 0, 0, $5)
+           VALUES ($1, $2, $3, $4, $5, 0, 0, $5, $6)
            RETURNING reservation_id, reservation_date`,
-          [uid, seat_id, paxRes.rows[0].passenger_id, hasBag, batchId]
+          [uid, seat_id, paxRes.rows[0].passenger_id, hasBag, priceBase, batchId]
         );
 
-        created.push({ reservation_id: ins.rows[0].reservation_id, seat_code: seat_number, created_at: ins.rows[0].reservation_date, batch_id: batchId });
+  created.push({ reservation_id: ins.rows[0].reservation_id, seat_code: seat_number, created_at: ins.rows[0].reservation_date, batch_id: batchId, total: priceBase });
       }
     }
     // Caso 2: selección aleatoria por clase y cantidad
@@ -91,7 +103,10 @@ export const createReservation = async (req, res) => {
           [dbClass]
         );
         if (!seatPick.rows.length) throw new HttpError("No hay asientos disponibles.", 409);
-        const { seat_id, seat_number } = seatPick.rows[0];
+  const { seat_id, seat_number } = seatPick.rows[0];
+  const seatInfo = await client.query("SELECT seat_class FROM seats WHERE seat_id=$1", [seat_id]);
+  const seatClassName = seatInfo.rows[0]?.seat_class || '';
+  const priceBase = basePriceForClass(seatClassName);
 
         const paxRes = await client.query(
           `INSERT INTO passengers(full_name, cui)
@@ -103,12 +118,12 @@ export const createReservation = async (req, res) => {
 
         const ins = await client.query(
           `INSERT INTO reservations(user_id, seat_id, passenger_id, has_luggage, price_base, discount, modification_fee, total_price, batch_id)
-           VALUES ($1, $2, $3, $4, 0, 0, 0, 0, $5)
+           VALUES ($1, $2, $3, $4, $5, 0, 0, $5, $6)
            RETURNING reservation_id, reservation_date`,
-          [uid, seat_id, paxRes.rows[0].passenger_id, hasBag, batchId]
+          [uid, seat_id, paxRes.rows[0].passenger_id, hasBag, priceBase, batchId]
         );
 
-        created.push({ reservation_id: ins.rows[0].reservation_id, seat_code: seat_number, created_at: ins.rows[0].reservation_date, batch_id: batchId });
+  created.push({ reservation_id: ins.rows[0].reservation_id, seat_code: seat_number, created_at: ins.rows[0].reservation_date, batch_id: batchId, total: priceBase });
       }
     } else {
       throw new HttpError("Estructura de solicitud inválida. Proporcione 'seats' o 'selectionMode=random' con 'quantity' y 'seatClass'.", 400);
@@ -133,6 +148,7 @@ export const getMyReservations = async (req, res) => {
               s.seat_number AS seat_code, s.seat_class,
               p.full_name, p.cui,
               r.has_luggage AS has_bag,
+              r.price_base, r.total_price AS total,
               r.batch_id
          FROM reservations r
          JOIN seats s ON s.seat_id = r.seat_id
@@ -152,21 +168,29 @@ export const updateReservation = async (req, res) => {
   try {
     if (!req.user || !req.user.id) throw new HttpError("No autenticado", 401);
     const { id } = req.params;
-    const { seat_id, price_base, has_luggage, full_name, cui } = req.body;
+    const { seat_id, has_luggage, full_name, cui } = req.body;
     const uid = req.user.id;
     const { rows } = await pool.query("SELECT * FROM reservations WHERE reservation_id=$1 AND user_id=$2", [id, uid]);
     if (!rows.length) throw new HttpError("Reserva no encontrada", 404);
 
     const prev = rows[0];
-    let total = Number(price_base ?? prev.price_base);
+    // Obtener clase base de la reserva actual
+    const prevSeat = await pool.query("SELECT seat_class FROM seats WHERE seat_id=$1", [prev.seat_id]);
+    const prevClass = prevSeat.rows[0]?.seat_class || '';
+    let base = basePriceForClass(prevClass);
+    let total = base;
     const seatChanged = seat_id && Number(seat_id) !== prev.seat_id;
     if (seatChanged) {
-      // +10% por cambio de asiento
-      total = total * 1.10;
-      // Validar nuevo asiento disponible
-      const seatQ = await pool.query("SELECT is_occupied FROM seats WHERE seat_id=$1", [seat_id]);
+      // Validar nuevo asiento disponible y clase
+      const seatQ = await pool.query("SELECT is_occupied, seat_class FROM seats WHERE seat_id=$1", [seat_id]);
       if (!seatQ.rows.length) throw new HttpError("Asiento no existe", 404);
       if (seatQ.rows[0].is_occupied) throw new HttpError("Asiento no disponible", 400);
+      const newClass = seatQ.rows[0].seat_class || '';
+      if (String(newClass).toLowerCase() !== String(prevClass).toLowerCase()) {
+        throw new HttpError("Solo puede cambiar dentro de la misma clase.", 400);
+      }
+      // +10% por cambio de asiento
+      total = base * 1.10;
     }
 
     // VIP descuento 10%
@@ -194,15 +218,15 @@ export const updateReservation = async (req, res) => {
     }
 
     await pool.query(
-      "UPDATE reservations SET seat_id=COALESCE($1, seat_id), price_base=COALESCE($2, price_base), has_luggage=COALESCE($3, has_luggage), total_price=$4, passenger_id=COALESCE($5, passenger_id) WHERE reservation_id=$6",
-      [seat_id || null, price_base || null, typeof has_luggage === 'boolean' ? has_luggage : null, total, newPassengerId, id]
+      "UPDATE reservations SET seat_id=COALESCE($1, seat_id), price_base=$2, has_luggage=COALESCE($3, has_luggage), total_price=$4, passenger_id=COALESCE($5, passenger_id) WHERE reservation_id=$6",
+      [seat_id || null, base, typeof has_luggage === 'boolean' ? has_luggage : null, total, newPassengerId, id]
     );
     if (seatChanged) {
       await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id=$1", [prev.seat_id]);
       await pool.query("UPDATE seats SET is_occupied=true WHERE seat_id=$1", [seat_id]);
     }
 
-    return ok(res, "Reserva actualizada", { reservation_id: Number(id), total, seatChanged, vip });
+    return ok(res, "Reserva actualizada", { reservation_id: Number(id), total, base, seatChanged, vip });
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });
@@ -216,21 +240,27 @@ export const quoteReservation = async (req, res) => {
     const { id } = req.params;
     const uid = req.user.id;
     const seat_id = req.query.seat_id ? Number(req.query.seat_id) : undefined;
-    const price_base = req.query.price_base ? Number(req.query.price_base) : undefined;
     const has_luggage = typeof req.query.has_luggage !== 'undefined' ? req.query.has_luggage === 'true' : undefined;
 
     const { rows } = await pool.query("SELECT * FROM reservations WHERE reservation_id=$1 AND user_id=$2", [id, uid]);
     if (!rows.length) throw new HttpError("Reserva no encontrada", 404);
     const prev = rows[0];
 
-    let total = Number(price_base ?? prev.price_base ?? 0);
+    // Precio base por clase actual
+    const prevSeat = await pool.query("SELECT seat_class FROM seats WHERE seat_id=$1", [prev.seat_id]);
+    const prevClass = prevSeat.rows[0]?.seat_class || '';
+    const base = basePriceForClass(prevClass);
+    let total = base;
     const seatChanged = seat_id && Number(seat_id) !== prev.seat_id;
     if (seatChanged) {
-      total = total * 1.10; // 10% por cambio de asiento
-      // Validar que el asiento potencial esté libre
-      const seatQ = await pool.query("SELECT is_occupied FROM seats WHERE seat_id=$1", [seat_id]);
+      total = base * 1.10; // 10% por cambio de asiento
+      // Validar que el asiento potencial esté libre y misma clase
+      const seatQ = await pool.query("SELECT is_occupied, seat_class FROM seats WHERE seat_id=$1", [seat_id]);
       if (!seatQ.rows.length) throw new HttpError("Asiento no existe", 404);
       if (seatQ.rows[0].is_occupied) throw new HttpError("Asiento no disponible", 400);
+      if (String(seatQ.rows[0].seat_class || '').toLowerCase() !== String(prevClass).toLowerCase()) {
+        throw new HttpError("Solo puede cambiar dentro de la misma clase.", 400);
+      }
     }
 
     // VIP descuento 10% por historial
@@ -239,7 +269,7 @@ export const quoteReservation = async (req, res) => {
     if (vip) total = total * 0.9;
 
     // Nota: has_luggage no afecta total actualmente; se incluye para futura lógica.
-    return ok(res, "Cotización de cambio", { reservation_id: Number(id), total, seatChanged: !!seatChanged, vip, has_luggage: typeof has_luggage === 'boolean' ? has_luggage : undefined });
+    return ok(res, "Cotización de cambio", { reservation_id: Number(id), total, base, seatChanged: !!seatChanged, vip, has_luggage: typeof has_luggage === 'boolean' ? has_luggage : undefined });
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });
@@ -257,6 +287,34 @@ export const cancelReservation = async (req, res) => {
     await pool.query("DELETE FROM reservations WHERE reservation_id=$1", [id]);
     await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id=$1", [seatId]);
     return ok(res, "Reserva cancelada", { reservation_id: Number(id) });
+  } catch (err) {
+    const status = err.status || 500;
+    return res.status(status).json({ success: false, message: err.message, data: err.data || null });
+  }
+};
+
+// POST /api/reservations/lookup { cui, seat_code }
+export const lookupReservationByCUIAndSeat = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) throw new HttpError("No autenticado", 401);
+    const uid = req.user.id;
+    const { cui, seat_code } = req.body || {};
+    const cleanCui = String(cui || '').replace(/[\s\-]/g, '');
+    const code = String(seat_code || '').trim();
+    if (!cleanCui || !code) throw new HttpError("Debe proporcionar cui y seat_code.", 400);
+    if (!validateCUI(cleanCui)) throw new HttpError("CUI inválido.", 400);
+
+    const q = await pool.query(
+      `SELECT r.reservation_id, s.seat_id, s.seat_number AS seat_code, s.seat_class,
+              p.full_name, p.cui, r.reservation_date AS created_at
+         FROM reservations r
+         JOIN passengers p ON p.passenger_id = r.passenger_id
+         JOIN seats s ON s.seat_id = r.seat_id
+        WHERE r.user_id=$1 AND p.cui=$2 AND s.seat_number=$3`,
+      [uid, cleanCui, code]
+    );
+    if (!q.rows.length) throw new HttpError("No se encontró una reserva para ese CUI y asiento.", 404);
+    return ok(res, "Reserva encontrada", q.rows[0]);
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });
