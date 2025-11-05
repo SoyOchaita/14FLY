@@ -32,7 +32,7 @@ export class MisReservasComponent implements OnInit {
   allSeats: Array<{ seat_id: number; seat_number: string; seat_class: string; is_occupied: boolean }> = [];
   private seatIndex: Map<string, { seat_id: number; seat_number: string; seat_class: string; is_occupied: boolean }> = new Map();
   // Previsualización y resultado
-  editQuote: { base: number; total: number; seatChanged: boolean; vip: boolean; prevFee: number; addedFee: number } | null = null;
+  editQuote: { base: number; total: number; seatChanged: boolean; vipApplied: boolean; discount: number; prevFee: number; addedFee: number } | null = null;
   editSuccess: { total: number; seatChanged: boolean; vip: boolean } | null = null;
   private quoteTimer: any = null;
   // Clase del conjunto actual para limitar el mapa
@@ -206,7 +206,7 @@ export class MisReservasComponent implements OnInit {
       this.api.quoteReservation(model.id, { seat_id, has_luggage: !!model.has_bag }).subscribe({
         next: (res) => {
           const d = res?.data || {};
-          this.editQuote = { base: Number(d.base || 0), total: Number(d.total || 0), seatChanged: !!d.seatChanged, vip: !!d.vip, prevFee: Number(d.fee_accumulated || 0), addedFee: Number(d.fee_added || 0) };
+          this.editQuote = { base: Number(d.base || 0), total: Number(d.total || 0), seatChanged: !!d.seatChanged, vipApplied: !!d.vip_applied || !!d.discount_applied, discount: Number(d.discount || 0), prevFee: Number(d.fee_accumulated || 0), addedFee: Number(d.fee_added || 0) };
         },
         error: () => {
           this.editQuote = null;
@@ -217,21 +217,10 @@ export class MisReservasComponent implements OnInit {
 
   // Desglose para mostrar 10% y VIP
   get basePrice(): number { return this.editQuote ? this.editQuote.base : 0; }
-  get changeFee(): number {
-    if (!this.editQuote) return 0;
-    return this.editQuote.seatChanged ? Math.round(this.basePrice * 0.10 * 100) / 100 : 0;
-  }
+  get changeFee(): number { return this.editQuote ? Math.round(this.editQuote.addedFee * 100) / 100 : 0; }
   get accumulatedFee(): number { return this.editQuote ? Math.round(this.editQuote.prevFee * 100) / 100 : 0; }
-  get vipDiscount(): number {
-    if (!this.editQuote || !this.editQuote.vip) return 0;
-    const sub = this.basePrice + this.changeFee;
-    return Math.round(sub * 0.10 * 100) / 100;
-  }
-  get previewTotal(): number {
-    if (!this.editQuote) return 0;
-    const calc = Math.round(((this.basePrice + this.changeFee) - this.vipDiscount) * 100) / 100;
-    return Number.isFinite(calc) ? calc : this.editQuote.total;
-  }
+  get vipDiscount(): number { return this.editQuote ? Math.round((this.editQuote.discount || 0) * 100) / 100 : 0; }
+  get previewTotal(): number { return this.editQuote ? this.editQuote.total : 0; }
 
   get currentClassLabel(): string {
     if (!this.editModel) return '';

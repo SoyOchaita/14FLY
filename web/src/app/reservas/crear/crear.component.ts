@@ -30,7 +30,7 @@ export class CrearComponent implements OnInit {
   modalExceeded = false;
   // Modal de confirmación
   showConfirmModal = false;
-  confirmList: Array<{ reservation_id: number; seat_code: string; created_at: string; total?: number }> = [];
+  confirmList: Array<{ reservation_id: number; seat_code: string; created_at: string; total?: number; price_base?: number; discount?: number; vip_applied?: boolean }> = [];
   // Modal de edición inline desde confirmación
   showInlineEdit = false;
   inlineEditReserva: { reservation_id: number; seat_code: string; full_name: string; cui: string; has_bag: boolean; seat_class?: string } | null = null;
@@ -38,9 +38,9 @@ export class CrearComponent implements OnInit {
 
   // Flujo paso a paso (confirmar después de cada reserva)
   stepQueue: Array<{ code: string; full_name: string; cui: string; has_bag: boolean }> = [];
-  stepResults: Array<{ reservation_id: number; seat_code: string; created_at: string; total?: number }> = [];
+  stepResults: Array<{ reservation_id: number; seat_code: string; created_at: string; total?: number; price_base?: number; discount?: number; vip_applied?: boolean }> = [];
   showStepModal = false;
-  stepLast: { reservation_id: number; seat_code: string; created_at: string; total?: number } | null = null;
+  stepLast: { reservation_id: number; seat_code: string; created_at: string; total?: number; price_base?: number; discount?: number; vip_applied?: boolean } | null = null;
   stepRemaining = 0;
   private currentBatchId: string | null = null;
   // Disponibilidad por clase
@@ -429,5 +429,10 @@ export class CrearComponent implements OnInit {
       next: (res) => { this.myReservasCache = res.data || []; done(); },
       error: () => { this.myReservasCache = []; done(); }
     });
+  }
+
+  // Indicador si alguna de las reservas recién creadas tuvo descuento VIP
+  get confirmHasVip(): boolean {
+    return this.confirmList.some(r => (r.discount || 0) > 0 || r.vip_applied);
   }
 }
