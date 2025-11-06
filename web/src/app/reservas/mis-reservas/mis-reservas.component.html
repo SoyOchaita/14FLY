@@ -12,10 +12,12 @@
     <div class="text-xs text-softblue/70">Se enviará un correo de confirmación de la cancelación.</div>
   </div>
   <div class="space-y-6" *ngIf="grupos.length; else empty">
-    <div class="neo-card p-5 border" *ngFor="let g of grupos">
+    <div class="neo-card p-5 border" *ngFor="let g of grupos; let gi = index">
       <div class="flex items-center justify-between mb-3">
         <div>
-          <div class="text-white font-semibold">Conjunto</div>
+          <div class="text-white font-semibold flex items-center gap-2">Conjunto
+            <span class="text-xs px-2 py-0.5 rounded bg-white/10 text-softblue">#{{ gi+1 }}</span>
+          </div>
           <div class="text-softblue/80 text-sm">{{ g.created_at | date:'medium' }} · {{ g.count }} reserva(s)</div>
         </div>
         <div class="text-right">
@@ -30,9 +32,9 @@
         </div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="p-4 rounded-lg bg-white/5 border border-white/10 transition" [ngClass]="{ 'ring-2 ring-softblue': highlightId===r.reservation_id }" *ngFor="let r of g.items">
+        <div class="p-4 rounded-lg bg-white/5 border border-white/10 transition" [ngClass]="{ 'ring-2 ring-softblue': highlightId===r.reservation_id }" *ngFor="let r of g.items; let i = index">
           <div class="flex items-center justify-between mb-1">
-            <span class="text-white font-semibold">Asiento {{ r.seat_code }}</span>
+            <span class="text-white font-semibold flex items-center gap-2">Reserva #{{ i+1 }} · Asiento {{ r.seat_code }}</span>
             <div class="flex items-center gap-3">
               <span class="text-emerald-400 font-semibold" *ngIf="r.total as t">Q {{ t | number:'1.0-0' }}</span>
               <span class="text-xs text-softblue/70">{{ r.created_at | date:'short' }}</span>
@@ -40,11 +42,35 @@
           </div>
           <div class="text-softblue text-sm">Pasajero: <span class="text-white">{{ r.full_name }}</span></div>
           <div class="text-softblue text-sm">Clase: <span class="text-white">{{ r.seat_class }}</span></div>
-          <div class="text-softblue text-sm mb-3">CUI: <span class="text-white">{{ r.cui }}</span> · Maleta: <span class="text-white">{{ r.has_bag ? 'Sí' : 'No' }}</span></div>
+          <div class="text-softblue text-sm mb-3 flex items-center flex-wrap gap-2">CUI:
+            <span class="text-white flex items-center gap-1">
+              {{ r.cui }}
+              <!-- Heroicon clipboard -->
+              <button type="button" (click)="copy(r.cui)" class="p-1 rounded hover:bg-white/10" title="Copiar CUI">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-softblue">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 2.25h6a2.25 2.25 0 012.25 2.25v1.5M9 2.25A2.25 2.25 0 006.75 4.5v1.5M9 2.25h6M6.75 6h10.5m-12 3.75A2.25 2.25 0 017.5 7.5h9a2.25 2.25 0 012.25 2.25v9A2.25 2.25 0 0116.5 21H7.5a2.25 2.25 0 01-2.25-2.25v-9z" />
+                </svg>
+              </button>
+            </span>
+            · Asiento:
+            <span class="text-white flex items-center gap-1">
+              {{ r.seat_code }}
+              <button type="button" (click)="copy(r.seat_code)" class="p-1 rounded hover:bg-white/10" title="Copiar asiento">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-softblue">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 2.25h6a2.25 2.25 0 012.25 2.25v1.5M9 2.25A2.25 2.25 0 006.75 4.5v1.5M9 2.25h6M6.75 6h10.5m-12 3.75A2.25 2.25 0 017.5 7.5h9a2.25 2.25 0 012.25 2.25v9A2.25 2.25 0 0116.5 21H7.5a2.25 2.25 0 01-2.25-2.25v-9z" />
+                </svg>
+              </button>
+            </span>
+            · Maleta: <span class="text-white">{{ r.has_bag ? 'Sí' : 'No' }}</span>
+          </div>
           <div class="flex gap-2 justify-end">
             <button class="px-3 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="openEdit(r)">Modificar</button>
+            <button class="px-3 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600" (click)="cancelReservationId(r.reservation_id)">Cancelar</button>
           </div>
         </div>
+      </div>
+      <div class="flex justify-end mt-3">
+        <button class="px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700" (click)="cancelBatch(g.batch_id)">Cancelar conjunto</button>
       </div>
     </div>
   </div>

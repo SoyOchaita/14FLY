@@ -112,6 +112,16 @@ export class MisReservasComponent implements OnInit {
     });
   }
 
+  // Copiar texto al portapapeles
+  copy(value: string) {
+    if (!value) return;
+    navigator.clipboard.writeText(value).then(() => {
+      this.toast.success('Copiado: ' + value);
+    }).catch(() => {
+      this.toast.error('No se pudo copiar');
+    });
+  }
+
   closeEdit() {
     this.showEditModal = false;
     this.editModel = null;
@@ -269,6 +279,35 @@ export class MisReservasComponent implements OnInit {
         this.toast.error(err?.error?.message || 'No se pudo cancelar');
         this.cancelling = false;
       }
+    });
+  }
+
+  // Cancelar una sola reserva por id
+  cancelReservationId(id: number) {
+    if (!confirm('¿Cancelar esta reserva?')) return;
+    this.api.deleteReservation(id).subscribe({
+      next: () => {
+        this.toast.success('Reserva cancelada');
+        this.api.getMyReservations().subscribe({
+          next: (res) => { this.reservas = res.data || []; this.buildGroups(); }
+        });
+      },
+      error: (err) => this.toast.error(err?.error?.message || 'Error al cancelar')
+    });
+  }
+
+  // Cancelar todas las reservas de un batch
+  cancelBatch(batch_id: string) {
+    if (!batch_id) return;
+    if (!confirm('¿Cancelar todas las reservas de este conjunto?')) return;
+    this.api.cancelBatch({ batch_id }).subscribe({
+      next: () => {
+        this.toast.success('Conjunto cancelado');
+        this.api.getMyReservations().subscribe({
+          next: (res) => { this.reservas = res.data || []; this.buildGroups(); }
+        });
+      },
+      error: (err) => this.toast.error(err?.error?.message || 'Error al cancelar conjunto')
     });
   }
 }

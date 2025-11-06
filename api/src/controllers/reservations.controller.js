@@ -371,6 +371,57 @@ export const cancelReservationByCUIAndSeat = async (req, res) => {
   }
 };
 
+// POST /api/reservations/cancel-batch { batch_id }
+export const cancelBatchReservations = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) throw new HttpError("No autenticado", 401);
+    const uid = req.user.id;
+    const { batch_id } = req.body || {};
+    if (!batch_id) throw new HttpError("Debe proporcionar batch_id.", 400);
+    // Obtener reservas del batch del usuario
+    const q = await pool.query(
+      `SELECT r.reservation_id, r.seat_id, s.seat_number, u.email
+         FROM reservations r
+         JOIN seats s ON s.seat_id=r.seat_id
+         JOIN users u ON u.user_id=r.user_id
+        WHERE r.user_id=$1 AND r.batch_id=$2`,
+      [uid, batch_id]
+    );
+    if (!q.rows.length) throw new HttpError("No se encontraron reservas para ese batch.", 404);
+    const seatIds = q.rows.map(r => r.seat_id);
+    const reservationIds = q.rows.map(r => r.reservation_id);
+    await pool.query("DELETE FROM reservations WHERE reservation_id = ANY($1::int[])", [reservationIds]);
+    await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id = ANY($1::int[])", [seatIds]);
+
+    // Enviar correo si existe email (usar el primero)
+    const email = q.rows[0]?.email;
+    if (email) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587,
+          secure: !!process.env.SMTP_SECURE && process.env.SMTP_SECURE !== 'false',
+          auth: process.env.SMTP_USER && process.env.SMTP_PASS ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined
+        });
+        const info = await transporter.sendMail({
+          from: process.env.MAIL_FROM || 'no-reply@14fly.local',
+          to: email,
+          subject: 'Cancelación de conjunto de reservas',
+          text: `Se han cancelado ${reservationIds.length} reservas del batch ${batch_id}. Gracias por usar 14FLY.`,
+          html: `<p>Se han cancelado <strong>${reservationIds.length}</strong> reservas del conjunto <strong>${batch_id}</strong>.</p><p>Gracias por usar <strong>14FLY</strong>.</p>`
+        });
+        if (process.env.NODE_ENV !== 'production') console.log('Correo batch cancel enviado:', info.messageId);
+      } catch (e) {
+        console.warn('Fallo al enviar correo batch cancel:', e.message);
+      }
+    }
+    return ok(res, "Conjunto cancelado", { batch_id, count: reservationIds.length });
+  } catch (err) {
+    const status = err.status || 500;
+    return res.status(status).json({ success: false, message: err.message, data: err.data || null });
+  }
+};
+
 // POST /api/reservations/lookup { cui, seat_code }
 export const lookupReservationByCUIAndSeat = async (req, res) => {
   try {

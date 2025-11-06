@@ -35,6 +35,10 @@ export class ReservasService {
     return this.http.put<any>(`${this.api}/reservations/${id}`, payload);
   }
 
+  deleteReservation(id: number): Observable<any> {
+    return this.http.delete<any>(`${this.api}/reservations/${id}`);
+  }
+
   quoteReservation(id: number, params: { seat_id?: number; price_base?: number; has_luggage?: boolean }): Observable<any> {
     const q = new URLSearchParams();
     if (typeof params.seat_id === 'number') q.set('seat_id', String(params.seat_id));
@@ -50,5 +54,9 @@ export class ReservasService {
 
   cancelByCuiAndSeat(payload: { cui: string; seat_code: string }): Observable<any> {
     return this.http.post<any>(`${this.api}/reservations/cancel-by-cui-seat`, payload);
+  }
+
+  cancelBatch(payload: { batch_id: string }): Observable<any> {
+    return this.http.post<any>(`${this.api}/reservations/cancel-batch`, payload);
   }
 }
