@@ -22,7 +22,7 @@ export const register = async (req, res) => {
     // Valida formato y dominio permitido con util centralizado
     validateEmail(email);
     // Validar contraseña segura
-    const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._-])[A-Za-z\d@$!%*?&._-]{8,}$/;
+    const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._#-])[A-Za-z\d@$!%*?&._#-]{8,}$/;
     const cleanPassword = password?.trim();
     if (!cleanPassword) {
       throw new HttpError("La contraseña es obligatoria y no puede estar vacía.", 400);
@@ -47,7 +47,28 @@ export const register = async (req, res) => {
     return ok(res, "Usuario registrado con éxito", rows[0], 201);
   } catch (err) {
     if (err.code === '23505') {
-      return res.status(409).json({ success: false, message: `El correo o CUI ya está registrado. Usa otro correo permitido (${allowedDomainsForMessage()}) o verifica el CUI.`, data: null });
+      // Violación de restricción única (correo o CUI ya existe)
+      const detail = err.detail || '';
+      const match = detail.match(/Key \(([^)]+)\)=\(([^)]+)\) already exists/i);
+      if (match) {
+        const field = (match[1] || '').toLowerCase();
+        const value = match[2] || '';
+        if (field === 'email') {
+          return res.status(409).json({
+            success: false,
+            message: `El correo "${value}" ya está asociado a una cuenta. Si ya tienes cuenta, inicia sesión. Si necesitas registrar otra, utiliza un correo con dominio permitido (${allowedDomainsForMessage()}).`,
+            data: null
+          });
+        }
+        if (field === 'cui') {
+          return res.status(409).json({
+            success: false,
+            message: `El CUI ${value} ya está asociado a una cuenta. Verifica el número o contáctanos si crees que se trata de un error.`,
+            data: null
+          });
+        }
+      }
+      return res.status(409).json({ success: false, message: 'Ya existe una cuenta con los datos proporcionados (correo o CUI).', data: null });
     }
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });
