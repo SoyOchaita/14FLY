@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../auth.service';
 import { RouterLink } from '@angular/router';
-import { validateFullName } from '../../shared/validators';
+import { validateFullName, validatePasswordComplex } from '../../shared/validators';
 
 @Component({
   selector: 'app-register',
@@ -39,8 +39,7 @@ export class RegisterComponent {
   }
   get passwordValid(): boolean {
     const p = this.model.password || '';
-    const pattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._-])[A-Za-z\d@$!%*?&._-]{8,}$/;
-    return pattern.test(p);
+    return validatePasswordComplex(p);
   }
   get cuiValid(): boolean {
     const digits = (this.model.cui || '').replace(/\D/g, '');
