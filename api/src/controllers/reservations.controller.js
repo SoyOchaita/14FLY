@@ -138,6 +138,46 @@ export const createReservation = async (req, res) => {
     }
 
     await client.query("COMMIT");
+    // Enviar correo de confirmación de creación (best-effort)
+    try {
+      const u = await pool.query("SELECT full_name, email FROM users WHERE user_id=$1", [uid]);
+      const email = u.rows[0]?.email;
+      const name = u.rows[0]?.full_name || '';
+      if (email && created.length) {
+        const totalGroup = created.reduce((acc, r) => acc + Number(r.total || 0), 0);
+        const anyVip = created.some(r => !!r.vip_applied);
+        const rowsHtml = created
+          .map(r => `<tr><td style=\"padding:6px 8px;\">${r.seat_code}</td><td style=\"padding:6px 8px;\">Q${Number(r.price_base).toFixed(2)}</td><td style=\"padding:6px 8px;\">${Number(r.discount||0) > 0 ? '-Q'+Number(r.discount).toFixed(2) : '-'}</td><td style=\"padding:6px 8px;\"><strong>Q${Number(r.total).toFixed(2)}</strong></td></tr>`)
+          .join('');
+        const html = `
+          <p>Hola <strong>${name || email}</strong>,</p>
+          <p>Tu(s) reserva(s) han sido creadas correctamente.</p>
+          <p><strong>Batch:</strong> ${batchId}</p>
+          <table style="border-collapse:collapse;min-width:320px">
+            <thead><tr><th style="text-align:left;padding:6px 8px;">Asiento</th><th style="text-align:left;padding:6px 8px;">Base</th><th style="text-align:left;padding:6px 8px;">Descuento</th><th style="text-align:left;padding:6px 8px;">Total</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+            <tfoot><tr><td colspan="3" style="padding:6px 8px;text-align:right;">Total grupo</td><td style="padding:6px 8px;"><strong>Q${totalGroup.toFixed(2)}</strong></td></tr></tfoot>
+          </table>
+          ${anyVip ? '<p style="color:#16a34a">Se aplicó un descuento VIP del 10%.</p>' : ''}
+          <p>Gracias por usar <strong>14FLY</strong>.</p>
+        `;
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587,
+          secure: !!process.env.SMTP_SECURE && process.env.SMTP_SECURE !== 'false',
+          auth: process.env.SMTP_USER && process.env.SMTP_PASS ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined
+        });
+        transporter.sendMail({
+          from: process.env.MAIL_FROM || 'no-reply@14fly.local',
+          to: email,
+          subject: 'Confirmación de reserva',
+          text: `Tus reservas han sido creadas (batch ${batchId}). Total: Q${totalGroup.toFixed(2)}.`,
+          html
+        }).then(info => { if (process.env.NODE_ENV !== 'production') console.log('Correo de creación enviado:', info.messageId); }).catch(e => console.warn('Fallo al enviar correo de creación:', e.message));
+      }
+    } catch (mailErr) {
+      console.warn('Fallo al preparar correo de creación:', mailErr.message);
+    }
     return res.json({ success: true, message: "Reservas realizadas correctamente.", data: created, batch_id: batchId });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -183,18 +223,20 @@ export const updateReservation = async (req, res) => {
 
     const prev = rows[0];
     // Obtener clase base de la reserva actual
-    const prevSeat = await pool.query("SELECT seat_class FROM seats WHERE seat_id=$1", [prev.seat_id]);
-    const prevClass = prevSeat.rows[0]?.seat_class || '';
+  const prevSeat = await pool.query("SELECT seat_class, seat_number FROM seats WHERE seat_id=$1", [prev.seat_id]);
+  const prevClass = prevSeat.rows[0]?.seat_class || '';
+  const prevSeatNumber = prevSeat.rows[0]?.seat_number || '';
   let base = basePriceForClass(prevClass);
   const prevFee = Number(prev.modification_fee || 0);
   let total = base + prevFee;
     const seatChanged = seat_id && Number(seat_id) !== prev.seat_id;
     if (seatChanged) {
       // Validar nuevo asiento disponible y clase
-      const seatQ = await pool.query("SELECT is_occupied, seat_class FROM seats WHERE seat_id=$1", [seat_id]);
+      const seatQ = await pool.query("SELECT is_occupied, seat_class, seat_number FROM seats WHERE seat_id=$1", [seat_id]);
       if (!seatQ.rows.length) throw new HttpError("Asiento no existe", 404);
       if (seatQ.rows[0].is_occupied) throw new HttpError("Asiento no disponible", 400);
       const newClass = seatQ.rows[0].seat_class || '';
+      var newSeatNumber = seatQ.rows[0]?.seat_number || '';
       if (String(newClass).toLowerCase() !== String(prevClass).toLowerCase()) {
         throw new HttpError("Solo puede cambiar dentro de la misma clase.", 400);
       }
@@ -241,6 +283,46 @@ export const updateReservation = async (req, res) => {
     if (seatChanged) {
       await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id=$1", [prev.seat_id]);
       await pool.query("UPDATE seats SET is_occupied=true WHERE seat_id=$1", [seat_id]);
+    }
+
+    // Enviar correo de modificación (best-effort)
+    try {
+      const u = await pool.query("SELECT full_name, email FROM users WHERE user_id=$1", [uid]);
+      const email = u.rows[0]?.email;
+      const name = u.rows[0]?.full_name || '';
+      if (email) {
+        const html = `
+          <p>Hola <strong>${name || email}</strong>,</p>
+          <p>Se ha aplicado una modificación a tu reserva <strong>#${id}</strong>.</p>
+          <ul>
+            <li><strong>Asiento anterior:</strong> ${prevSeatNumber || 'sin cambio'}</li>
+            <li><strong>Asiento nuevo:</strong> ${seatChanged ? (typeof newSeatNumber !== 'undefined' ? newSeatNumber : '(actualizado)') : prevSeatNumber}</li>
+          </ul>
+          <p><strong>Desglose:</strong></p>
+          <ul>
+            <li>Base: Q${base.toFixed(2)}</li>
+            <li>Fee acumulado: Q${Number(newFee).toFixed(2)}</li>
+            <li>Descuento: ${discount > 0 ? '-Q'+discount.toFixed(2) : '-'}</li>
+            <li>Total: <strong>Q${total.toFixed(2)}</strong></li>
+          </ul>
+          ${discount > 0 ? '<p style="color:#16a34a">Descuento VIP del 10% aplicado.</p>' : ''}
+          <p>Gracias por usar <strong>14FLY</strong>.</p>`;
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587,
+          secure: !!process.env.SMTP_SECURE && process.env.SMTP_SECURE !== 'false',
+          auth: process.env.SMTP_USER && process.env.SMTP_PASS ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined
+        });
+        transporter.sendMail({
+          from: process.env.MAIL_FROM || 'no-reply@14fly.local',
+          to: email,
+          subject: 'Actualización de reserva',
+          text: `Tu reserva #${id} fue modificada. Total: Q${total.toFixed(2)}.`,
+          html
+        }).then(info => { if (process.env.NODE_ENV !== 'production') console.log('Correo de modificación enviado:', info.messageId); }).catch(e => console.warn('Fallo al enviar correo de modificación:', e.message));
+      }
+    } catch (mailErr) {
+      console.warn('Fallo al preparar correo de modificación:', mailErr.message);
     }
 
     return ok(res, "Reserva actualizada", { reservation_id: Number(id), total, base, seatChanged, vip_applied: discount > 0, discount, discount_added: discountAdded, fee_accumulated: newFee, fee_added: seatChanged ? base * 0.10 : 0 });
