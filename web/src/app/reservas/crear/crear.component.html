@@ -154,7 +154,8 @@
 	<div class="absolute inset-0 bg-black/60" (click)="closeConfirmModal()"></div>
 	<div class="relative neo-card p-6 w-full max-w-lg">
 		<h4 class="text-lg font-semibold text-white mb-3">Reserva completada</h4>
-		<p class="text-softblue mb-3">Se registró {{ confirmList.length }} asiento(s):</p>
+		<p class="text-softblue mb-1">Se registró {{ confirmList.length }} asiento(s):</p>
+		<p class="text-softblue/70 text-xs mb-3">Te enviamos un correo con el detalle de tu(s) reserva(s).</p>
 		<div *ngIf="confirmHasVip" class="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 text-sm">
 			🎉 Gracias por ser cliente VIP: aplicamos un 10% de descuento a tu(s) reserva(s).
 			<div class="mt-1 text-emerald-200/80">

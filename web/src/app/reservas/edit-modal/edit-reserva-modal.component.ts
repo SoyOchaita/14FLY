@@ -66,6 +66,7 @@ export class EditReservaModalComponent {
     this.api.updateReservation(m.id, { seat_id, has_luggage: !!m.has_bag, full_name: m.full_name, cui: m.cui }).subscribe({
       next: () => {
         this.toast.success('Reserva actualizada');
+        this.toast.info('Te enviamos un correo con el detalle de la modificación.');
         this.updated.emit({ reservation_id: m.id, new_seat_code: changeSeat ? m.new_seat_code || undefined : undefined });
         this.close();
       },

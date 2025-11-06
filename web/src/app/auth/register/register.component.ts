@@ -72,7 +72,7 @@ export class RegisterComponent {
     this.auth.register(payload).subscribe({
       next: () => {
         this.loading = false;
-        this.successMsg = 'Cuenta creada. Redirigiendo…';
+        this.successMsg = 'Cuenta creada. Te enviamos un correo de bienvenida. Redirigiendo…';
       },
       error: (err) => {
         this.loading = false;
