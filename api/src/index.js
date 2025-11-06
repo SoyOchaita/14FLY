@@ -9,7 +9,7 @@ import userRoutes from "./routes/users.routes.js";
 import seatRoutes from "./routes/seats.routes.js";
 import reservationRoutes from "./routes/reservations.routes.js";
 import configRoutes from "./routes/config.routes.js";
-import { getTransporter } from "./utils/mailer.js";
+import { getTransporter, sendMail, renderTemplate } from "./utils/mailer.js";
 
 dotenv.config();
 
@@ -50,6 +50,25 @@ app.get("/health/email", async (req, res) => {
     return res.json({ success: true, message: ok ? "email: ready" : "email: unknown", data: { configured: true, verified: !!ok, ...cfg } });
   } catch (e) {
     return res.status(503).json({ success: false, message: "email: verify-failed", data: { configured: true, error: e.message, ...cfg } });
+  }
+});
+
+// Envío de prueba (solo no-producción). Útil para validar Mailtrap.
+app.get("/health/email/test", async (req, res) => {
+  if ((process.env.NODE_ENV || 'development') === 'production') {
+    return res.status(403).json({ success: false, message: 'email: test-disabled-in-production' });
+  }
+  const to = String(req.query.to || 'test@14fly.local');
+  try {
+    const html = renderTemplate({
+      title: 'Prueba SMTP 14FLY',
+      intro: 'Este es un correo de prueba para validar la configuración SMTP.',
+      contentHtml: '<p>Si estás usando Mailtrap, revisa tu inbox de Mailtrap.</p>'
+    });
+    await sendMail({ to, subject: 'Prueba SMTP 14FLY', html, text: 'Correo de prueba SMTP 14FLY.' });
+    return res.json({ success: true, message: 'email: test-sent', data: { to } });
+  } catch (e) {
+    return res.status(503).json({ success: false, message: 'email: test-failed', data: { to, error: e.message } });
   }
 });
 
