@@ -1,16 +1,46 @@
-<section class="min-h-[70vh] flex items-center justify-center">
+<section class="min-h-[70vh] flex items-center justify-center px-4">
 	<div class="w-full max-w-md neo-card p-8">
 		<h1 class="text-3xl font-semibold text-white mb-2 text-center">Iniciar sesión</h1>
 		<p class="text-softblue/80 text-center mb-6">Bienvenido de vuelta a 14FLY</p>
 
-		<form class="space-y-5" (ngSubmit)="onSubmit()" #f="ngForm">
+		<form class="space-y-5" (ngSubmit)="onSubmit()" novalidate>
 			<div>
-				<input name="email" [(ngModel)]="credentials.email" type="email" placeholder="Correo" class="input-neo" required />
+				<label class="text-softblue text-sm mb-1 block">Correo electrónico</label>
+				<input name="email" [(ngModel)]="credentials.email" type="email" placeholder="nombre@dominio.com" class="input-neo"
+							 [ngClass]="{ 'border-red-500': credentials.email && !emailValid, 'border-emerald-500': emailValid }" autocomplete="email" />
+				<div class="text-xs mt-1" [ngClass]="{ 'text-red-400': credentials.email && !emailValid, 'text-softblue/60': !credentials.email }">
+					<ng-container *ngIf="!credentials.email">Ingresa tu correo.</ng-container>
+					<ng-container *ngIf="credentials.email && !emailValid">Formato inválido o dominio no permitido ({{ allowedDomains.join(', ') }}).</ng-container>
+					<ng-container *ngIf="emailValid">Correo válido.</ng-container>
+				</div>
 			</div>
 			<div>
-				<input name="password" [(ngModel)]="credentials.password" type="password" placeholder="Contraseña" class="input-neo" required />
+				<label class="text-softblue text-sm mb-1 block">Contraseña</label>
+				<div class="relative">
+					<input name="password" [(ngModel)]="credentials.password" [type]="showPassword ? 'text' : 'password'" placeholder="Tu contraseña" class="input-neo pr-14"
+								 [ngClass]="{ 'border-red-500': credentials.password && !passwordValid, 'border-emerald-500': passwordValid }" autocomplete="current-password" />
+					<button type="button" (click)="togglePassword()" class="absolute top-1/2 -translate-y-1/2 right-2 text-softblue hover:text-white transition" aria-label="Mostrar/ocultar contraseña">
+						<span *ngIf="!showPassword">👁️</span>
+						<span *ngIf="showPassword">🙈</span>
+					</button>
+				</div>
+				<div class="text-xs mt-1" [ngClass]="{ 'text-red-400': credentials.password && !passwordValid, 'text-softblue/60': !credentials.password }">
+					<ng-container *ngIf="!credentials.password">Ingresa tu contraseña.</ng-container>
+					<ng-container *ngIf="credentials.password && !passwordValid">Debe tener al menos 8 caracteres.</ng-container>
+					<ng-container *ngIf="passwordValid">Contraseña lista.</ng-container>
+				</div>
 			</div>
-			<button type="submit" class="btn-accent w-full">Entrar</button>
+
+			<div *ngIf="errorMsg" class="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm" aria-live="assertive">{{ errorMsg }}</div>
+
+			<button type="submit" class="btn-accent w-full disabled:opacity-50" [disabled]="!canSubmit">
+				<span *ngIf="!loading">Entrar</span>
+				<span *ngIf="loading">Procesando…</span>
+			</button>
+			<div class="text-center text-xs text-softblue/70">Dominios permitidos: {{ allowedDomains.join(', ') }}</div>
+			<div class="text-center text-softblue/60 text-sm">
+				¿No tienes cuenta? <a routerLink="/register" class="text-softblue hover:underline">Regístrate</a>
+			</div>
 		</form>
 	</div>
 </section>

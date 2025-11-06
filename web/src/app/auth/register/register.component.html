@@ -1,14 +1,67 @@
-<section class="min-h-[70vh] flex items-center justify-center">
+<section class="min-h-[70vh] flex items-center justify-center px-4">
 	<div class="w-full max-w-md neo-card p-8">
 		<h1 class="text-3xl font-semibold text-white mb-2 text-center">Crear cuenta</h1>
 		<p class="text-softblue/80 text-center mb-6">Únete a la experiencia Neo‑Air</p>
 
-		<form class="space-y-5">
-			<input type="text" placeholder="Nombre completo" class="input-neo" />
-			<input type="email" placeholder="Correo (gmail.com u outlook.com)" class="input-neo" />
-			<input type="password" placeholder="Contraseña" class="input-neo" />
-			<input type="text" placeholder="CUI (####-#####-####)" class="input-neo" />
-			<button type="submit" class="btn-accent w-full">Registrarme</button>
+		<form class="space-y-5" (ngSubmit)="onSubmit()" novalidate>
+			<div>
+				<label class="text-softblue text-sm mb-1 block">Nombre completo</label>
+				<input [(ngModel)]="model.full_name" name="full_name" type="text" placeholder="Ej. María López" class="input-neo"
+							 [ngClass]="{ 'border-red-500': model.full_name && !nameValid, 'border-emerald-500': nameValid }" />
+				<div class="text-xs mt-1" [ngClass]="{ 'text-red-400': model.full_name && !nameValid, 'text-softblue/60': !model.full_name }">
+					<ng-container *ngIf="!model.full_name">Ingresa tu nombre completo.</ng-container>
+					<ng-container *ngIf="model.full_name && !nameValid">Solo letras y espacios (mín. 3 caracteres).</ng-container>
+					<ng-container *ngIf="nameValid">Nombre válido.</ng-container>
+				</div>
+			</div>
+			<div>
+				<label class="text-softblue text-sm mb-1 block">Correo electrónico</label>
+				<input [(ngModel)]="model.email" name="email" type="email" placeholder="nombre@dominio.com" class="input-neo"
+							 [ngClass]="{ 'border-red-500': model.email && !emailValid, 'border-emerald-500': emailValid }" autocomplete="email" />
+				<div class="text-xs mt-1" [ngClass]="{ 'text-red-400': model.email && !emailValid, 'text-softblue/60': !model.email }">
+					<ng-container *ngIf="!model.email">Ingresa tu correo.</ng-container>
+					<ng-container *ngIf="model.email && !emailValid">Formato inválido o dominio no permitido ({{ allowedDomains.join(', ') }}).</ng-container>
+					<ng-container *ngIf="emailValid">Correo válido.</ng-container>
+				</div>
+			</div>
+			<div>
+				<label class="text-softblue text-sm mb-1 block">Contraseña</label>
+				<div class="relative">
+					<input [(ngModel)]="model.password" name="password" [type]="showPassword ? 'text' : 'password'" placeholder="Mín. 8, mayúscula, minúscula, número y símbolo" class="input-neo pr-14"
+								 [ngClass]="{ 'border-red-500': model.password && !passwordValid, 'border-emerald-500': passwordValid }" autocomplete="new-password" />
+					<button type="button" (click)="togglePassword()" class="absolute top-1/2 -translate-y-1/2 right-2 text-softblue hover:text-white transition" aria-label="Mostrar/ocultar contraseña">
+						<span *ngIf="!showPassword">👁️</span>
+						<span *ngIf="showPassword">🙈</span>
+					</button>
+				</div>
+				<div class="text-xs mt-1" [ngClass]="{ 'text-red-400': model.password && !passwordValid, 'text-softblue/60': !model.password }">
+					<ng-container *ngIf="!model.password">Ingresa tu contraseña.</ng-container>
+					<ng-container *ngIf="model.password && !passwordValid">Debe tener mínimo 8 caracteres y cumplir complejidad.</ng-container>
+					<ng-container *ngIf="passwordValid">Contraseña segura.</ng-container>
+				</div>
+			</div>
+			<div>
+				<label class="text-softblue text-sm mb-1 block">CUI</label>
+				<input [(ngModel)]="model.cui" name="cui" type="text" placeholder="####-#####-####" class="input-neo" (input)="formatCui()"
+							 [ngClass]="{ 'border-red-500': model.cui && !cuiValid, 'border-emerald-500': cuiValid }" />
+				<div class="text-xs mt-1" [ngClass]="{ 'text-red-400': model.cui && !cuiValid, 'text-softblue/60': !model.cui }">
+					<ng-container *ngIf="!model.cui">Ingresa tu CUI.</ng-container>
+					<ng-container *ngIf="model.cui && !cuiValid">Debe contener 13 dígitos.</ng-container>
+					<ng-container *ngIf="cuiValid">CUI válido.</ng-container>
+				</div>
+			</div>
+
+			<div *ngIf="errorMsg" class="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm" aria-live="assertive">{{ errorMsg }}</div>
+			<div *ngIf="successMsg" class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm" aria-live="polite">{{ successMsg }}</div>
+
+			<button type="submit" class="btn-accent w-full disabled:opacity-50" [disabled]="!canSubmit">
+				<span *ngIf="!loading">Registrarme</span>
+				<span *ngIf="loading">Procesando…</span>
+			</button>
+			<div class="text-center text-xs text-softblue/70">Dominios permitidos: {{ allowedDomains.join(', ') }}</div>
+			<div class="text-center text-softblue/60 text-sm">
+				¿Ya tienes cuenta? <a routerLink="/login" class="text-softblue hover:underline">Inicia sesión</a>
+			</div>
 		</form>
 	</div>
 </section>

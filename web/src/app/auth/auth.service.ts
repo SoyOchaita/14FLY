@@ -9,6 +9,7 @@ import { Observable } from 'rxjs';
 })
 export class AuthService {
   private apiUrl = '/api/users';
+  private allowedDomainsCache: string[] | null = null;
 
   constructor(private http: HttpClient, private router: Router) {}
 
@@ -24,6 +25,26 @@ export class AuthService {
         }
       })
     );
+  }
+
+  register(payload: { full_name: string; email: string; password: string; cui: string }): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/register`, payload).pipe(
+      tap((res) => {
+        if (res?.success) {
+          // Inicio de sesión automático opcional tras registro
+          this.login({ email: payload.email, password: payload.password }).subscribe();
+        }
+      })
+    );
+  }
+
+  getAllowedDomains(): Observable<string[]> {
+    if (this.allowedDomainsCache) {
+      return new Observable((obs) => { obs.next(this.allowedDomainsCache as string[]); obs.complete(); });
+    }
+    // No hay endpoint dedicado; derivamos desde variable en frontend si existiera, o devolvemos defaults conocidos
+    const defaults = ['gmail.com','outlook.com'];
+    return new Observable((obs) => { this.allowedDomainsCache = defaults; obs.next(defaults); obs.complete(); });
   }
 
   logout(): void {
