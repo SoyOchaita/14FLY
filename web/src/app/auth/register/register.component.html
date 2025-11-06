@@ -14,9 +14,9 @@
 					<ng-container *ngIf="nameValid">Nombre válido.</ng-container>
 				</div>
 			</div>
-			<div>
+						<div>
 				<label class="text-softblue text-sm mb-1 block">Correo electrónico</label>
-				<input [(ngModel)]="model.email" name="email" type="email" placeholder="nombre@dominio.com" class="input-neo"
+							<input #emailInput [(ngModel)]="model.email" name="email" type="email" placeholder="nombre@dominio.com" class="input-neo"
 							 [ngClass]="{ 'border-red-500': model.email && !emailValid, 'border-emerald-500': emailValid }" autocomplete="email" />
 				<div class="text-xs mt-1" [ngClass]="{ 'text-red-400': model.email && !emailValid, 'text-softblue/60': !model.email }">
 					<ng-container *ngIf="!model.email">Ingresa tu correo.</ng-container>
@@ -45,9 +45,9 @@
 					<ng-container *ngIf="passwordValid">Contraseña segura.</ng-container>
 				</div>
 			</div>
-			<div>
+						<div>
 				<label class="text-softblue text-sm mb-1 block">CUI</label>
-				<input [(ngModel)]="model.cui" name="cui" type="text" placeholder="####-#####-####" class="input-neo" (input)="formatCui()"
+							<input #cuiInput [(ngModel)]="model.cui" name="cui" type="text" placeholder="####-#####-####" class="input-neo" (input)="formatCui()"
 							 [ngClass]="{ 'border-red-500': model.cui && !cuiValid, 'border-emerald-500': cuiValid }" />
 				<div class="text-xs mt-1" [ngClass]="{ 'text-red-400': model.cui && !cuiValid, 'text-softblue/60': !model.cui }">
 					<ng-container *ngIf="!model.cui">Ingresa tu CUI.</ng-container>
@@ -56,7 +56,16 @@
 				</div>
 			</div>
 
-			<div *ngIf="errorMsg" class="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm" aria-live="assertive">{{ errorMsg }}</div>
+			<div *ngIf="errorMsg" class="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm space-y-2" aria-live="assertive">
+				<div>{{ errorMsg }}</div>
+				<div *ngIf="duplicateType === 'email'" class="flex flex-wrap gap-2">
+					<button type="button" (click)="goToLogin()" class="btn-accent !py-1 !px-3">Ir a Iniciar sesión</button>
+					<button type="button" (click)="useOtherEmail()" class="btn-secondary !py-1 !px-3">Usar otro correo</button>
+				</div>
+				<div *ngIf="duplicateType === 'cui'" class="flex flex-wrap gap-2">
+					<button type="button" (click)="fixCui()" class="btn-secondary !py-1 !px-3">Corregir CUI</button>
+				</div>
+			</div>
 			<div *ngIf="successMsg" class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm" aria-live="polite">{{ successMsg }}</div>
 
 			<button type="submit" class="btn-accent w-full disabled:opacity-50" [disabled]="!canSubmit">

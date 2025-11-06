@@ -1,8 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, ElementRef, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../auth.service';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { validateFullName, validatePasswordComplex } from '../../shared/validators';
 
 @Component({
@@ -19,8 +19,13 @@ export class RegisterComponent {
   errorMsg: string | null = null;
   successMsg: string | null = null;
   allowedDomains: string[] = [];
+  duplicateType: 'email' | 'cui' | null = null;
+  duplicateValue: string | null = null;
 
-  constructor(private auth: AuthService) {
+  @ViewChild('emailInput') emailInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('cuiInput') cuiInput?: ElementRef<HTMLInputElement>;
+
+  constructor(private auth: AuthService, private router: Router) {
     this.auth.getAllowedDomains().subscribe(d => this.allowedDomains = d);
   }
 
@@ -59,6 +64,8 @@ export class RegisterComponent {
   onSubmit() {
     if (!this.canSubmit) return;
     this.errorMsg = null;
+    this.duplicateType = null;
+    this.duplicateValue = null;
     this.successMsg = null;
     this.loading = true;
     const payload = { ...this.model, cui: (this.model.cui || '').replace(/\D/g,'') };
@@ -70,7 +77,41 @@ export class RegisterComponent {
       error: (err) => {
         this.loading = false;
         this.errorMsg = err?.error?.message || 'Error al registrar.';
+        const msg = String(this.errorMsg);
+        // Detectar si el backend informó duplicado específico
+        const emailMatch = msg.match(/correo\s+"([^"]+)"\s+ya está asociado/i);
+        const cuiMatch = msg.match(/CUI\s+([0-9\-]+)\s+ya está asociado/i);
+        if (emailMatch) {
+          this.duplicateType = 'email';
+          this.duplicateValue = emailMatch[1];
+        } else if (cuiMatch) {
+          this.duplicateType = 'cui';
+          this.duplicateValue = cuiMatch[1];
+        } else {
+          this.duplicateType = null;
+          this.duplicateValue = null;
+        }
       }
     });
+  }
+
+  goToLogin() {
+    this.router.navigate(['/login']);
+  }
+
+  useOtherEmail() {
+    this.model.email = '';
+    this.errorMsg = null;
+    this.duplicateType = null;
+    this.duplicateValue = null;
+    setTimeout(() => this.emailInput?.nativeElement.focus(), 0);
+  }
+
+  fixCui() {
+    this.model.cui = '';
+    this.errorMsg = null;
+    this.duplicateType = null;
+    this.duplicateValue = null;
+    setTimeout(() => this.cuiInput?.nativeElement.focus(), 0);
   }
 }
