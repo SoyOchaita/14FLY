@@ -41,7 +41,7 @@
 				</div>
 				<div class="text-xs mt-1" [ngClass]="{ 'text-red-400': model.password && !passwordValid, 'text-softblue/60': !model.password }">
 					<ng-container *ngIf="!model.password">Ingresa tu contraseña.</ng-container>
-					<ng-container *ngIf="model.password && !passwordValid">Mín. 8, con mayúscula, minúscula, número y símbolo. Permitidos: @ $ ! % * ? & . _ - #</ng-container>
+					<ng-container *ngIf="model.password && !passwordValid">Mín. 8, con mayúscula, minúscula, número y símbolo. Permitidos: &#64; $ ! % * ? &amp; . _ - #</ng-container>
 					<ng-container *ngIf="passwordValid">Contraseña segura.</ng-container>
 				</div>
 			</div>
