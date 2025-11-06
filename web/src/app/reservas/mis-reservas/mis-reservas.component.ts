@@ -38,6 +38,16 @@ export class MisReservasComponent implements OnInit {
   // Clase del conjunto actual para limitar el mapa
   private editClassType: 'business' | 'economy' = 'economy';
 
+  // Modales de cancelación
+  showCancelModal = false;
+  cancelTarget: any | null = null; // reserva seleccionada
+  confirmCui = '';
+  isCancelling = false;
+
+  showCancelBatchModal = false;
+  cancelBatchTarget: { batch_id: string; items: any[] } | null = null;
+  confirmPhrase = '';
+
   constructor(private api: ReservasService, private toast: ToastService, private route: ActivatedRoute, public router: Router) {}
 
   ngOnInit(): void {
@@ -251,58 +261,65 @@ export class MisReservasComponent implements OnInit {
     return 'economy';
   }
 
-  // Cancelación por CUI y asiento
-  cancelCui: string = '';
-  cancelSeatCode: string = '';
-  cancelling = false;
-  onCancelByCuiSeat() {
-    const cui = this.cancelCui.trim();
-    const seat_code = this.cancelSeatCode.trim().toUpperCase();
-    if (!cui || !seat_code) {
-      this.toast.warning('Ingresa CUI y asiento.');
+  // Abrir/Cerrar modal cancelar individual
+  openCancel(r: any) {
+    this.cancelTarget = r;
+    this.confirmCui = '';
+    this.showCancelModal = true;
+  }
+  closeCancel() {
+    this.showCancelModal = false;
+    this.cancelTarget = null;
+    this.confirmCui = '';
+    this.isCancelling = false;
+  }
+  confirmCancel() {
+    if (!this.cancelTarget) return;
+    const expected = String(this.cancelTarget.cui || '').replace(/\D/g, '');
+    const entered = String(this.confirmCui || '').replace(/\D/g, '');
+    if (!entered || entered !== expected) {
+      this.toast.error('El CUI no coincide. Verifica e intenta nuevamente.');
       return;
     }
-    this.cancelling = true;
-    this.api.cancelByCuiAndSeat({ cui, seat_code }).subscribe({
+    this.isCancelling = true;
+    this.api.deleteReservation(this.cancelTarget.reservation_id).subscribe({
       next: () => {
         this.toast.success('Reserva cancelada');
-        // Limpiar campos
-        this.cancelCui = '';
-        this.cancelSeatCode = '';
-        // Refrescar lista
-        this.api.getMyReservations().subscribe({
-          next: (res) => { this.reservas = res.data || []; this.buildGroups(); },
-          complete: () => { this.cancelling = false; }
-        });
-      },
-      error: (err) => {
-        this.toast.error(err?.error?.message || 'No se pudo cancelar');
-        this.cancelling = false;
-      }
-    });
-  }
-
-  // Cancelar una sola reserva por id
-  cancelReservationId(id: number) {
-    if (!confirm('¿Cancelar esta reserva?')) return;
-    this.api.deleteReservation(id).subscribe({
-      next: () => {
-        this.toast.success('Reserva cancelada');
+        this.closeCancel();
         this.api.getMyReservations().subscribe({
           next: (res) => { this.reservas = res.data || []; this.buildGroups(); }
         });
       },
-      error: (err) => this.toast.error(err?.error?.message || 'Error al cancelar')
+      error: (err) => {
+        this.toast.error(err?.error?.message || 'Error al cancelar');
+        this.isCancelling = false;
+      }
     });
   }
 
-  // Cancelar todas las reservas de un batch
-  cancelBatch(batch_id: string) {
-    if (!batch_id) return;
-    if (!confirm('¿Cancelar todas las reservas de este conjunto?')) return;
-    this.api.cancelBatch({ batch_id }).subscribe({
+  // Cancelación por conjunto
+  openCancelBatch(group: { batch_id: string; items: any[] }) {
+    if (!group?.batch_id) return;
+    this.cancelBatchTarget = { batch_id: group.batch_id, items: group.items || [] };
+    this.confirmPhrase = '';
+    this.showCancelBatchModal = true;
+  }
+  closeCancelBatch() {
+    this.showCancelBatchModal = false;
+    this.cancelBatchTarget = null;
+    this.confirmPhrase = '';
+  }
+  confirmCancelBatch() {
+    if (!this.cancelBatchTarget) return;
+    if ((this.confirmPhrase || '').trim().toUpperCase() !== 'CANCELAR') {
+      this.toast.error('Para confirmar escribe la palabra CANCELAR.');
+      return;
+    }
+    const bid = this.cancelBatchTarget.batch_id;
+    this.api.cancelBatch({ batch_id: bid }).subscribe({
       next: () => {
         this.toast.success('Conjunto cancelado');
+        this.closeCancelBatch();
         this.api.getMyReservations().subscribe({
           next: (res) => { this.reservas = res.data || []; this.buildGroups(); }
         });

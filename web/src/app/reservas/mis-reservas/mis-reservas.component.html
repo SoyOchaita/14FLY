@@ -1,16 +1,6 @@
 <section class="p-6">
   <h1 class="text-2xl font-semibold text-white mb-4">Mis reservas</h1>
-  <!-- Formulario de cancelación por CUI y asiento -->
-  <div class="neo-card p-4 mb-6 border border-white/10">
-    <h2 class="text-lg font-semibold text-white mb-2">Cancelar reserva</h2>
-    <p class="text-softblue text-sm mb-3">Ingresa el <strong>CUI</strong> y el <strong>código de asiento</strong> para cancelar una reserva. Deben coincidir exactamente.</p>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-      <input [(ngModel)]="cancelCui" name="cancelCui" placeholder="CUI" class="input-neo w-full bg-dark/40 text-white border-white/10" />
-      <input [(ngModel)]="cancelSeatCode" name="cancelSeatCode" placeholder="Asiento (ej. A3)" class="input-neo w-full bg-dark/40 text-white border-white/10" />
-      <button (click)="onCancelByCuiSeat()" [disabled]="cancelling" class="px-4 py-3 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 disabled:opacity-50">{{ cancelling ? 'Cancelando…' : 'Cancelar' }}</button>
-    </div>
-    <div class="text-xs text-softblue/70">Se enviará un correo de confirmación de la cancelación.</div>
-  </div>
+  <!-- Eliminado formulario de cancelación global para unificar experiencia en modales -->
   <div class="space-y-6" *ngIf="grupos.length; else empty">
     <div class="neo-card p-5 border" *ngFor="let g of grupos; let gi = index">
       <div class="flex items-center justify-between mb-3">
@@ -65,12 +55,12 @@
           </div>
           <div class="flex gap-2 justify-end">
             <button class="px-3 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="openEdit(r)">Modificar</button>
-            <button class="px-3 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600" (click)="cancelReservationId(r.reservation_id)">Cancelar</button>
+            <button class="px-3 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600" (click)="openCancel(r)">Cancelar</button>
           </div>
         </div>
       </div>
       <div class="flex justify-end mt-3">
-        <button class="px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700" (click)="cancelBatch(g.batch_id)">Cancelar conjunto</button>
+        <button class="px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700" (click)="openCancelBatch(g)">Cancelar conjunto</button>
       </div>
     </div>
   </div>
@@ -168,3 +158,47 @@
     </div>
   </div>
 </section>
+
+<!-- Modal: Cancelar reserva individual -->
+<div *ngIf="showCancelModal && cancelTarget" class="fixed inset-0 z-50 flex items-center justify-center">
+  <div class="absolute inset-0 bg-black/60" (click)="closeCancel()"></div>
+  <div class="relative neo-card p-6 w-full max-w-md">
+    <h4 class="text-lg font-semibold text-white mb-3">Cancelar reserva</h4>
+    <div class="bg-white/5 rounded-lg p-3 border border-white/10 mb-3">
+      <div class="text-white font-semibold flex items-center gap-2">
+        Asiento {{ cancelTarget.seat_code }}
+        <span class="text-xs px-2 py-0.5 rounded bg-white/10 text-softblue">{{ cancelTarget.seat_class }}</span>
+      </div>
+      <div class="text-softblue text-sm">Pasajero: <span class="text-white">{{ cancelTarget.full_name }}</span></div>
+      <div class="text-softblue text-sm">CUI: <span class="text-white">{{ cancelTarget.cui }}</span></div>
+    </div>
+    <p class="text-softblue text-sm mb-2">Por seguridad, escribe el CUI asociado para confirmar la cancelación.</p>
+    <input [(ngModel)]="confirmCui" name="confirmCui" class="input-neo w-full bg-dark/40 text-white border-white/10 mb-3" placeholder="Ingresa CUI para confirmar" />
+    <div class="flex justify-end gap-3">
+      <button class="px-4 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="closeCancel()">Volver</button>
+      <button class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50" [disabled]="isCancelling || !confirmCui" (click)="confirmCancel()">{{ isCancelling ? 'Cancelando…' : 'Confirmar' }}</button>
+    </div>
+  </div>
+  </div>
+
+<!-- Modal: Cancelar conjunto -->
+<div *ngIf="showCancelBatchModal && cancelBatchTarget" class="fixed inset-0 z-50 flex items-center justify-center">
+  <div class="absolute inset-0 bg-black/60" (click)="closeCancelBatch()"></div>
+  <div class="relative neo-card p-6 w-full max-w-lg">
+    <h4 class="text-lg font-semibold text-white mb-3">Cancelar conjunto</h4>
+    <p class="text-softblue text-sm mb-2">Se cancelarán las siguientes reservas ({{ cancelBatchTarget.items.length }}):</p>
+    <ul class="max-h-48 overflow-auto space-y-1 bg-white/5 rounded-lg p-3 border border-white/10 mb-3">
+      <li class="flex items-center justify-between" *ngFor="let it of cancelBatchTarget.items">
+        <span class="text-white">Asiento {{ it.seat_code }}</span>
+        <span class="text-softblue/70 text-xs">{{ it.full_name }}</span>
+      </li>
+    </ul>
+    <p class="text-red-300 text-sm mb-2">Esta acción no se puede deshacer.</p>
+    <p class="text-softblue text-sm mb-2">Para confirmar, escribe <span class="px-2 py-0.5 rounded bg-white/10 text-white">CANCELAR</span></p>
+    <input [(ngModel)]="confirmPhrase" name="confirmPhrase" class="input-neo w-full bg-dark/40 text-white border-white/10 mb-3" placeholder="Escribe CANCELAR" />
+    <div class="flex justify-end gap-3">
+      <button class="px-4 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="closeCancelBatch()">Volver</button>
+      <button class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50" [disabled]="(confirmPhrase||'').trim().toUpperCase()!=='CANCELAR'" (click)="confirmCancelBatch()">Confirmar</button>
+    </div>
+  </div>
+  </div>
