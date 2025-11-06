@@ -157,6 +157,9 @@
 		<p class="text-softblue mb-3">Se registró {{ confirmList.length }} asiento(s):</p>
 		<div *ngIf="confirmHasVip" class="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 text-sm">
 			🎉 Gracias por ser cliente VIP: aplicamos un 10% de descuento a tu(s) reserva(s).
+			<div class="mt-1 text-emerald-200/80">
+				Beneficio VIP: se activa automáticamente al acumular 5 reservas o más en tu cuenta.
+			</div>
 		</div>
 		<ul class="space-y-2 max-h-64 overflow-auto">
 			<li *ngFor="let r of confirmList" class="flex items-center justify-between bg-white/5 rounded-lg p-3 border border-white/10">

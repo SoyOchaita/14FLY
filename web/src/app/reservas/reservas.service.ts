@@ -47,4 +47,8 @@ export class ReservasService {
   lookupReservationByCuiAndSeat(payload: { cui: string; seat_code: string }): Observable<any> {
     return this.http.post<any>(`${this.api}/reservations/lookup`, payload);
   }
+
+  cancelByCuiAndSeat(payload: { cui: string; seat_code: string }): Observable<any> {
+    return this.http.post<any>(`${this.api}/reservations/cancel-by-cui-seat`, payload);
+  }
 }

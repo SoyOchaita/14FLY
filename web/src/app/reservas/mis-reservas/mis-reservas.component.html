@@ -1,5 +1,16 @@
 <section class="p-6">
   <h1 class="text-2xl font-semibold text-white mb-4">Mis reservas</h1>
+  <!-- Formulario de cancelación por CUI y asiento -->
+  <div class="neo-card p-4 mb-6 border border-white/10">
+    <h2 class="text-lg font-semibold text-white mb-2">Cancelar reserva</h2>
+    <p class="text-softblue text-sm mb-3">Ingresa el <strong>CUI</strong> y el <strong>código de asiento</strong> para cancelar una reserva. Deben coincidir exactamente.</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+      <input [(ngModel)]="cancelCui" name="cancelCui" placeholder="CUI" class="input-neo w-full bg-dark/40 text-white border-white/10" />
+      <input [(ngModel)]="cancelSeatCode" name="cancelSeatCode" placeholder="Asiento (ej. A3)" class="input-neo w-full bg-dark/40 text-white border-white/10" />
+      <button (click)="onCancelByCuiSeat()" [disabled]="cancelling" class="px-4 py-3 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 disabled:opacity-50">{{ cancelling ? 'Cancelando…' : 'Cancelar' }}</button>
+    </div>
+    <div class="text-xs text-softblue/70">Se enviará un correo de confirmación de la cancelación.</div>
+  </div>
   <div class="space-y-6" *ngIf="grupos.length; else empty">
     <div class="neo-card p-5 border" *ngFor="let g of grupos">
       <div class="flex items-center justify-between mb-3">

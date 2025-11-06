@@ -2,6 +2,7 @@ import { pool } from "../db/pool.js";
 import { randomUUID } from "crypto";
 import { ok, HttpError } from "../utils/response.js";
 import { validateCUI, validateFullName } from "../utils/validators.js";
+import nodemailer from "nodemailer";
 
 // Precios base por clase (configurables vía ENV)
 const BUSINESS_PRICE = Number(process.env.BUSINESS_PRICE || 1500);
@@ -306,6 +307,64 @@ export const cancelReservation = async (req, res) => {
     await pool.query("DELETE FROM reservations WHERE reservation_id=$1", [id]);
     await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id=$1", [seatId]);
     return ok(res, "Reserva cancelada", { reservation_id: Number(id) });
+  } catch (err) {
+    const status = err.status || 500;
+    return res.status(status).json({ success: false, message: err.message, data: err.data || null });
+  }
+};
+
+// POST /api/reservations/cancel-by-cui-seat { cui, seat_code }
+export const cancelReservationByCUIAndSeat = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) throw new HttpError("No autenticado", 401);
+    const uid = req.user.id;
+    const { cui, seat_code } = req.body || {};
+    const cleanCui = String(cui || '').replace(/[^0-9]/g, '');
+    const code = String(seat_code || '').trim();
+    if (!cleanCui || !code) throw new HttpError("Debe proporcionar cui y seat_code.", 400);
+    if (!validateCUI(cleanCui)) throw new HttpError("CUI inválido.", 400);
+
+    const q = await pool.query(
+      `SELECT r.reservation_id, r.seat_id, s.seat_number, p.full_name, p.cui, u.email
+         FROM reservations r
+         JOIN passengers p ON p.passenger_id = r.passenger_id
+         JOIN seats s ON s.seat_id = r.seat_id
+         JOIN users u ON u.user_id = r.user_id
+        WHERE r.user_id=$1 AND p.cui=$2 AND s.seat_number=$3`,
+      [uid, cleanCui, code]
+    );
+    if (!q.rows.length) throw new HttpError("No se encontró una reserva que coincida con el CUI y asiento.", 404);
+    const row = q.rows[0];
+    // Eliminar reserva y liberar asiento
+    await pool.query("DELETE FROM reservations WHERE reservation_id=$1", [row.reservation_id]);
+    await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id=$1", [row.seat_id]);
+
+    // Enviar correo (best-effort, no bloqueante si falla)
+    if (row.email) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+            port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587,
+            secure: !!process.env.SMTP_SECURE && process.env.SMTP_SECURE !== 'false',
+            auth: process.env.SMTP_USER && process.env.SMTP_PASS ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined
+        });
+        const info = await transporter.sendMail({
+          from: process.env.MAIL_FROM || 'no-reply@14fly.local',
+          to: row.email,
+          subject: 'Cancelación de reserva',
+          text: `Tu reserva del asiento ${row.seat_number} ha sido cancelada correctamente. CUI: ${row.cui}. Gracias por usar 14FLY.`,
+          html: `<p>Hola <strong>${row.full_name}</strong>,</p><p>Tu reserva del asiento <strong>${row.seat_number}</strong> ha sido cancelada correctamente.</p><p>CUI: <strong>${row.cui}</strong></p><p>Gracias por usar <strong>14FLY</strong>.</p>`
+        });
+        // Opcional: log de mensaje
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Correo de cancelación enviado:', info.messageId);
+        }
+      } catch (mailErr) {
+        console.warn('Fallo al enviar correo de cancelación:', mailErr.message);
+      }
+    }
+
+    return ok(res, "Reserva cancelada", { seat_code: code, cui: cleanCui });
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });

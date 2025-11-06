@@ -240,4 +240,35 @@ export class MisReservasComponent implements OnInit {
     if (n.includes('negocio')) return 'business';
     return 'economy';
   }
+
+  // Cancelación por CUI y asiento
+  cancelCui: string = '';
+  cancelSeatCode: string = '';
+  cancelling = false;
+  onCancelByCuiSeat() {
+    const cui = this.cancelCui.trim();
+    const seat_code = this.cancelSeatCode.trim().toUpperCase();
+    if (!cui || !seat_code) {
+      this.toast.warning('Ingresa CUI y asiento.');
+      return;
+    }
+    this.cancelling = true;
+    this.api.cancelByCuiAndSeat({ cui, seat_code }).subscribe({
+      next: () => {
+        this.toast.success('Reserva cancelada');
+        // Limpiar campos
+        this.cancelCui = '';
+        this.cancelSeatCode = '';
+        // Refrescar lista
+        this.api.getMyReservations().subscribe({
+          next: (res) => { this.reservas = res.data || []; this.buildGroups(); },
+          complete: () => { this.cancelling = false; }
+        });
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.message || 'No se pudo cancelar');
+        this.cancelling = false;
+      }
+    });
+  }
 }
