@@ -5,7 +5,7 @@ import { ok, HttpError } from "../utils/response.js";
 import { validateEmail, allowedDomainsForMessage } from "../utils/emailValidator.js";
 import { validateFullName } from "../utils/validators.js";
 import { validateCUI } from "../services/cui.service.js";
-import nodemailer from "nodemailer";
+import { sendMail, renderTemplate } from "../utils/mailer.js";
 
 export const register = async (req, res) => {
   try {
@@ -47,24 +47,15 @@ export const register = async (req, res) => {
     const { rows } = await pool.query(query, [normalizedName, email, hash, String(cui).replace(/\s/g,'').replace(/-/g,'')]);
     // Envío de correo de bienvenida (best-effort, no bloqueante)
     if (email) {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587,
-          secure: !!process.env.SMTP_SECURE && process.env.SMTP_SECURE !== 'false',
-          auth: process.env.SMTP_USER && process.env.SMTP_PASS ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined
-        });
-        const safeName = normalizedName || email;
-        transporter.sendMail({
-          from: process.env.MAIL_FROM || 'no-reply@14fly.local',
-          to: email,
-          subject: 'Bienvenido a 14FLY',
-          text: `Hola ${safeName}, tu cuenta ha sido creada exitosamente. ¡Bienvenido a 14FLY!`,
-          html: `<p>Hola <strong>${safeName}</strong>,</p><p>Tu cuenta ha sido creada exitosamente.</p><p>Gracias por unirte a <strong>14FLY</strong>.</p>`
-        }).then(info => { if (process.env.NODE_ENV !== 'production') console.log('Correo de bienvenida enviado:', info.messageId); }).catch(e => console.warn('Fallo al enviar correo de bienvenida:', e.message));
-      } catch (mailErr) {
-        console.warn('Fallo al preparar envío de correo de bienvenida:', mailErr.message);
-      }
+      const safeName = normalizedName || email;
+      const html = renderTemplate({
+        title: 'Bienvenido a 14FLY',
+        intro: 'Tu cuenta ha sido creada exitosamente.',
+        contentHtml: `<p>Hola <strong>${safeName}</strong>,</p>
+          <p>¡Nos alegra tenerte a bordo! Ya puedes gestionar tus reservas y disfrutar de beneficios exclusivos.</p>`
+      });
+      sendMail({ to: email, subject: 'Bienvenido a 14FLY', html, text: `Hola ${safeName}, tu cuenta ha sido creada exitosamente. Bienvenido a 14FLY.` })
+        .catch(e => console.warn('Fallo al enviar correo de bienvenida:', e.message));
     }
     return ok(res, "Usuario registrado con éxito", rows[0], 201);
   } catch (err) {

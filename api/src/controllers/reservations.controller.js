@@ -2,7 +2,7 @@ import { pool } from "../db/pool.js";
 import { randomUUID } from "crypto";
 import { ok, HttpError } from "../utils/response.js";
 import { validateCUI, validateFullName } from "../utils/validators.js";
-import nodemailer from "nodemailer";
+import { sendMail, renderTemplate } from "../utils/mailer.js";
 
 // Precios base por clase (configurables vía ENV)
 const BUSINESS_PRICE = Number(process.env.BUSINESS_PRICE || 1500);
@@ -149,7 +149,7 @@ export const createReservation = async (req, res) => {
         const rowsHtml = created
           .map(r => `<tr><td style=\"padding:6px 8px;\">${r.seat_code}</td><td style=\"padding:6px 8px;\">Q${Number(r.price_base).toFixed(2)}</td><td style=\"padding:6px 8px;\">${Number(r.discount||0) > 0 ? '-Q'+Number(r.discount).toFixed(2) : '-'}</td><td style=\"padding:6px 8px;\"><strong>Q${Number(r.total).toFixed(2)}</strong></td></tr>`)
           .join('');
-        const html = `
+        const contentHtml = `
           <p>Hola <strong>${name || email}</strong>,</p>
           <p>Tu(s) reserva(s) han sido creadas correctamente.</p>
           <p><strong>Batch:</strong> ${batchId}</p>
@@ -159,21 +159,10 @@ export const createReservation = async (req, res) => {
             <tfoot><tr><td colspan="3" style="padding:6px 8px;text-align:right;">Total grupo</td><td style="padding:6px 8px;"><strong>Q${totalGroup.toFixed(2)}</strong></td></tr></tfoot>
           </table>
           ${anyVip ? '<p style="color:#16a34a">Se aplicó un descuento VIP del 10%.</p>' : ''}
-          <p>Gracias por usar <strong>14FLY</strong>.</p>
         `;
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587,
-          secure: !!process.env.SMTP_SECURE && process.env.SMTP_SECURE !== 'false',
-          auth: process.env.SMTP_USER && process.env.SMTP_PASS ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined
-        });
-        transporter.sendMail({
-          from: process.env.MAIL_FROM || 'no-reply@14fly.local',
-          to: email,
-          subject: 'Confirmación de reserva',
-          text: `Tus reservas han sido creadas (batch ${batchId}). Total: Q${totalGroup.toFixed(2)}.`,
-          html
-        }).then(info => { if (process.env.NODE_ENV !== 'production') console.log('Correo de creación enviado:', info.messageId); }).catch(e => console.warn('Fallo al enviar correo de creación:', e.message));
+        const html = renderTemplate({ title: 'Confirmación de reserva', intro: 'Resumen de tu(s) reserva(s).', contentHtml });
+        sendMail({ to: email, subject: 'Confirmación de reserva', html, text: `Tus reservas han sido creadas (batch ${batchId}). Total: Q${totalGroup.toFixed(2)}.` })
+          .catch(e => console.warn('Fallo al enviar correo de creación:', e.message));
       }
     } catch (mailErr) {
       console.warn('Fallo al preparar correo de creación:', mailErr.message);
@@ -291,7 +280,7 @@ export const updateReservation = async (req, res) => {
       const email = u.rows[0]?.email;
       const name = u.rows[0]?.full_name || '';
       if (email) {
-        const html = `
+        const contentHtml = `
           <p>Hola <strong>${name || email}</strong>,</p>
           <p>Se ha aplicado una modificación a tu reserva <strong>#${id}</strong>.</p>
           <ul>
@@ -306,20 +295,10 @@ export const updateReservation = async (req, res) => {
             <li>Total: <strong>Q${total.toFixed(2)}</strong></li>
           </ul>
           ${discount > 0 ? '<p style="color:#16a34a">Descuento VIP del 10% aplicado.</p>' : ''}
-          <p>Gracias por usar <strong>14FLY</strong>.</p>`;
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587,
-          secure: !!process.env.SMTP_SECURE && process.env.SMTP_SECURE !== 'false',
-          auth: process.env.SMTP_USER && process.env.SMTP_PASS ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined
-        });
-        transporter.sendMail({
-          from: process.env.MAIL_FROM || 'no-reply@14fly.local',
-          to: email,
-          subject: 'Actualización de reserva',
-          text: `Tu reserva #${id} fue modificada. Total: Q${total.toFixed(2)}.`,
-          html
-        }).then(info => { if (process.env.NODE_ENV !== 'production') console.log('Correo de modificación enviado:', info.messageId); }).catch(e => console.warn('Fallo al enviar correo de modificación:', e.message));
+        `;
+        const html = renderTemplate({ title: 'Actualización de reserva', intro: 'Resumen de cambios aplicados.', contentHtml });
+        sendMail({ to: email, subject: 'Actualización de reserva', html, text: `Tu reserva #${id} fue modificada. Total: Q${total.toFixed(2)}.` })
+          .catch(e => console.warn('Fallo al enviar correo de modificación:', e.message));
       }
     } catch (mailErr) {
       console.warn('Fallo al preparar correo de modificación:', mailErr.message);
@@ -424,23 +403,17 @@ export const cancelReservationByCUIAndSeat = async (req, res) => {
     // Enviar correo (best-effort, no bloqueante si falla)
     if (row.email) {
       try {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-            port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587,
-            secure: !!process.env.SMTP_SECURE && process.env.SMTP_SECURE !== 'false',
-            auth: process.env.SMTP_USER && process.env.SMTP_PASS ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined
+        const html = renderTemplate({
+          title: 'Cancelación de reserva',
+          intro: 'Tu reserva ha sido cancelada.',
+          contentHtml: `<p>Hola <strong>${row.full_name}</strong>,</p><p>Tu reserva del asiento <strong>${row.seat_number}</strong> ha sido cancelada correctamente.</p><p>CUI: <strong>${row.cui}</strong></p>`
         });
-        const info = await transporter.sendMail({
-          from: process.env.MAIL_FROM || 'no-reply@14fly.local',
+        await sendMail({
           to: row.email,
           subject: 'Cancelación de reserva',
-          text: `Tu reserva del asiento ${row.seat_number} ha sido cancelada correctamente. CUI: ${row.cui}. Gracias por usar 14FLY.`,
-          html: `<p>Hola <strong>${row.full_name}</strong>,</p><p>Tu reserva del asiento <strong>${row.seat_number}</strong> ha sido cancelada correctamente.</p><p>CUI: <strong>${row.cui}</strong></p><p>Gracias por usar <strong>14FLY</strong>.</p>`
+          html,
+          text: `Tu reserva del asiento ${row.seat_number} ha sido cancelada correctamente. CUI: ${row.cui}.`
         });
-        // Opcional: log de mensaje
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('Correo de cancelación enviado:', info.messageId);
-        }
       } catch (mailErr) {
         console.warn('Fallo al enviar correo de cancelación:', mailErr.message);
       }
@@ -479,20 +452,17 @@ export const cancelBatchReservations = async (req, res) => {
     const email = q.rows[0]?.email;
     if (email) {
       try {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587,
-          secure: !!process.env.SMTP_SECURE && process.env.SMTP_SECURE !== 'false',
-          auth: process.env.SMTP_USER && process.env.SMTP_PASS ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined
+        const html = renderTemplate({
+          title: 'Cancelación de reservas',
+          intro: 'Se ha cancelado un conjunto de reservas.',
+          contentHtml: `<p>Se han cancelado <strong>${reservationIds.length}</strong> reservas del conjunto <strong>${batch_id}</strong>.</p>`
         });
-        const info = await transporter.sendMail({
-          from: process.env.MAIL_FROM || 'no-reply@14fly.local',
+        await sendMail({
           to: email,
           subject: 'Cancelación de conjunto de reservas',
-          text: `Se han cancelado ${reservationIds.length} reservas del batch ${batch_id}. Gracias por usar 14FLY.`,
-          html: `<p>Se han cancelado <strong>${reservationIds.length}</strong> reservas del conjunto <strong>${batch_id}</strong>.</p><p>Gracias por usar <strong>14FLY</strong>.</p>`
+          html,
+          text: `Se han cancelado ${reservationIds.length} reservas del batch ${batch_id}.`
         });
-        if (process.env.NODE_ENV !== 'production') console.log('Correo batch cancel enviado:', info.messageId);
       } catch (e) {
         console.warn('Fallo al enviar correo batch cancel:', e.message);
       }
