@@ -48,3 +48,12 @@ input, select, textarea {
 	border-radius: 0.75rem !important;
 	padding: 0.6rem 1.25rem !important;
 }
+
+
+.brand-logo {
+	height: 2.75rem; /* ~44px */
+	width: auto;
+}
+@media (min-width: 640px) { /* sm */
+	.brand-logo { height: 3rem; /* 48px */ }
+}

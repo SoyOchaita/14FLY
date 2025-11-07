@@ -48,12 +48,23 @@ export const register = async (req, res) => {
     // Envío de correo de bienvenida (best-effort, no bloqueante)
     if (email) {
       const safeName = normalizedName || email;
-      const html = renderTemplate({
-        title: 'Bienvenido a 14FLY',
-        intro: 'Tu cuenta ha sido creada exitosamente.',
-        contentHtml: `<p>Hola <strong>${safeName}</strong>,</p>
-          <p>¡Nos alegra tenerte a bordo! Ya puedes gestionar tus reservas y disfrutar de beneficios exclusivos.</p>`
-      });
+      const appUrl = process.env.WEB_URL || process.env.APP_URL || process.env.FRONTEND_URL || '';
+      const cta = appUrl
+        ? `<p style="margin:16px 0 0"><a href="${appUrl}" style="display:inline-block;background:#f9b17a;color:#2d3250;text-decoration:none;font-weight:700;padding:10px 16px;border-radius:10px">Ir a 14FLY</a></p>`
+        : '';
+      const contentHtml = `
+        <h2 style="margin:0 0 8px;color:#fff">¡Bienvenido/a a 14FLY!</h2>
+        <p style="margin:0 0 8px">Hola <strong>${safeName}</strong>, tu cuenta ha sido creada exitosamente.</p>
+        <p style="margin:0 0 8px">Desde ahora puedes:</p>
+        <ul style="margin:8px 0 0;padding-left:18px;color:#c7d2fe">
+          <li>Reservar tus asientos de forma rápida y segura.</li>
+          <li>Revisar el estado en <strong>Mis reservas</strong>.</li>
+          <li>Actualizar tus datos cuando lo necesites.</li>
+        </ul>
+        ${cta}
+        <p style="margin:12px 0 0;color:#cbd5e1;font-size:12px">Si no creaste esta cuenta, ignora este mensaje.</p>
+      `;
+      const html = renderTemplate({ title: 'Bienvenido a 14FLY', intro: 'Tu cuenta está lista para usarse.', contentHtml });
       sendMail({ to: email, subject: 'Bienvenido a 14FLY', html, text: `Hola ${safeName}, tu cuenta ha sido creada exitosamente. Bienvenido a 14FLY.` })
         .catch(e => console.warn('Fallo al enviar correo de bienvenida:', e.message));
     }

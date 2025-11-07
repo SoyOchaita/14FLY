@@ -59,6 +59,31 @@ Test-NetConnection -ComputerName localhost -Port 3000
 - `POST /api/reservations` (con Bearer token)
 - `GET /api/reservations/me` (con Bearer token)
 
+## Pruebas de Email (solo no-producción)
+Estas rutas ayudan a validar el estilo y contenido de los correos sin depender de acciones reales. Se deshabilitan automáticamente cuando `NODE_ENV=production`.
+
+- `GET /health/email` → Verifica la conectividad del SMTP (no envía correo).
+- `GET /health/email/test?to=tu_correo@example.com` → Envía un correo simple de prueba.
+- `GET /test/email/welcome?to=tu_correo@example.com&name=Tu%20Nombre`
+  - Prueba el correo de bienvenida/creación de usuario.
+- `GET /test/email/reservation-created?to=tu_correo@example.com&name=Tu%20Nombre&vip=true|false`
+  - Prueba el correo de reserva creada, con tabla de asientos y descuento VIP opcional.
+- `GET /test/email/reservation-updated?to=tu_correo@example.com&vip=true|false`
+  - Prueba el correo de modificación de reserva, mostrando recargo de cambio (10%) y descuento VIP.
+- `GET /test/email/reservation-cancelled?to=tu_correo@example.com`
+  - Prueba el correo de cancelación.
+- `GET /test/email/vip?to=tu_correo@example.com&name=Tu%20Nombre`
+  - Prueba el correo de notificación de estatus VIP.
+
+Notas:
+- Configura SMTP en `api/.env` (por ejemplo Gmail con App Password) y reinicia la API.
+- Con Gmail: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_SECURE=false`, `SMTP_USER=tu_gmail`, `SMTP_PASS=app_password_sin_espacios`, `MAIL_FROM="14FLY <tu_gmail>"`.
+ - Logo en correos:
+   - Coloca tu imagen en `api/assets/` y define `MAIL_LOGO_PATH=assets/logo-14fly.png`.
+   - O usa `MAIL_LOGO_URL=https://tu-dominio/logo-14fly.png`.
+   - El header del email usará el logo si está disponible.
+  - Tamaño opcional del logo: `MAIL_LOGO_HEIGHT=40` (en píxeles)
+
 ## Solución de problemas
 - El navegador no carga:
   - Asegúrate de usar "localhost" (con "o"): http://localhost:3000/
