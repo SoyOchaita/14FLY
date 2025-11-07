@@ -234,12 +234,15 @@ export const importReservationsXML = async (req, res) => {
 export const adminDashboard = async (req, res) => {
   try {
     // Métricas globales
+    // NOTA: seat_class es un ENUM (p.ej. 'Negocios', 'Económica'). Evitamos usar LOWER() sobre enums,
+    // ya que provoca el error: "function lower(seat_class_enum) does not exist". Comparamos por igualdad directa.
+    // Si en el futuro se agregan más clases, considerar una tabla de referencia en lugar de LIKE/LOWER.
     const [usersTotalQ, seatsBizOccQ, seatsEcoOccQ, seatsBizFreeQ, seatsEcoFreeQ, resTotalQ, selManualQ, selRandomQ, modifiedQ, cancelledQ] = await Promise.all([
       pool.query('SELECT COUNT(*)::int AS users_total FROM users'),
-      pool.query("SELECT COUNT(*)::int AS cnt FROM seats WHERE is_occupied=true AND LOWER(seat_class) LIKE '%negoc%'") ,
-      pool.query("SELECT COUNT(*)::int AS cnt FROM seats WHERE is_occupied=true AND LOWER(seat_class) LIKE '%econ%'") ,
-      pool.query("SELECT COUNT(*)::int AS cnt FROM seats WHERE is_occupied=false AND LOWER(seat_class) LIKE '%negoc%'") ,
-      pool.query("SELECT COUNT(*)::int AS cnt FROM seats WHERE is_occupied=false AND LOWER(seat_class) LIKE '%econ%'") ,
+      pool.query("SELECT COUNT(*)::int AS cnt FROM seats WHERE is_occupied=true AND seat_class='Negocios'"),
+      pool.query("SELECT COUNT(*)::int AS cnt FROM seats WHERE is_occupied=true AND seat_class='Económica'"),
+      pool.query("SELECT COUNT(*)::int AS cnt FROM seats WHERE is_occupied=false AND seat_class='Negocios'"),
+      pool.query("SELECT COUNT(*)::int AS cnt FROM seats WHERE is_occupied=false AND seat_class='Económica'"),
       pool.query('SELECT COUNT(*)::int AS reservations_total FROM reservations'),
       pool.query("SELECT COUNT(*)::int AS cnt FROM reservation_activity WHERE type='created' AND selection_mode='manual'"),
       pool.query("SELECT COUNT(*)::int AS cnt FROM reservation_activity WHERE type='created' AND selection_mode='random'"),
@@ -293,5 +296,60 @@ export const adminDashboard = async (req, res) => {
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });
+  }
+};
+
+// POST /api/reports/activity/backfill (admin)
+// Crea actividad histórica mínima a partir del estado actual:
+// - 'created' para todas las reservas existentes que no la tengan.
+// - 'modified' cuando modification_fee > 0 y no exista registro.
+// No es posible reconstruir cancelaciones ya eliminadas.
+export const backfillActivity = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Backfill "created" para reservas sin actividad creada
+    const createdIns = await client.query(`
+      WITH missing AS (
+        SELECT r.user_id, r.reservation_id, r.reservation_date
+        FROM reservations r
+        LEFT JOIN reservation_activity ra
+          ON ra.reservation_id = r.reservation_id AND ra.type='created'
+        WHERE ra.activity_id IS NULL
+      )
+      INSERT INTO reservation_activity (user_id, reservation_id, type, selection_mode, created_at)
+      SELECT m.user_id, m.reservation_id, 'created'::text, 'manual'::text, m.reservation_date
+      FROM missing m
+      RETURNING activity_id;
+    `);
+
+    // Backfill "modified" para reservas que muestran recargo acumulado (>0) y no tienen actividad
+    const modifiedIns = await client.query(`
+      WITH missing AS (
+        SELECT r.user_id, r.reservation_id
+        FROM reservations r
+        LEFT JOIN reservation_activity ra
+          ON ra.reservation_id = r.reservation_id AND ra.type='modified'
+        WHERE ra.activity_id IS NULL AND COALESCE(r.modification_fee, 0) > 0
+      )
+      INSERT INTO reservation_activity (user_id, reservation_id, type)
+      SELECT m.user_id, m.reservation_id, 'modified'::text
+      FROM missing m
+      RETURNING activity_id;
+    `);
+
+    await client.query('COMMIT');
+    return ok(res, 'Backfill de actividad completado', {
+      created_added: createdIns.rowCount || 0,
+      modified_added: modifiedIns.rowCount || 0,
+      cancelled_added: 0
+    });
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    const status = err.status || 500;
+    return res.status(status).json({ success: false, message: err.message, data: null });
+  } finally {
+    client.release();
   }
 };
