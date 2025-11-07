@@ -11,6 +11,17 @@
           <span class="hidden sm:inline text-softblue/80">Hola, <span class="text-white">{{ auth.displayName() }}</span></span>
           <a routerLink="/reservas/crear" routerLinkActive="text-accent" class="hover:text-accent">Nueva reserva</a>
           <a routerLink="/reservas/mis-reservas" routerLinkActive="text-accent" class="hover:text-accent">Mis reservas</a>
+          <a routerLink="/me" routerLinkActive="text-accent" class="hover:text-accent">Mi perfil</a>
+          <!-- Admin actions -->
+          <ng-container *ngIf="auth.isAdmin()">
+            <div class="relative">
+              <button type="button" class="hover:text-accent" (click)="toggleAdminMenu()">Admin ▾</button>
+              <div *ngIf="adminMenuOpen" class="absolute right-0 mt-2 bg-dark border border-white/10 rounded shadow-xl min-w-64 p-2 z-30">
+                <button type="button" (click)="downloadAllReservationsXML(); closeAdminMenu()" class="block w-full text-left px-3 py-2 rounded hover:bg-white/5">Descargar reservas (XML)</button>
+                <button type="button" (click)="openAdminImportModal(); closeAdminMenu()" class="block w-full text-left px-3 py-2 rounded hover:bg-white/5">Cargar reservas (XML)</button>
+              </div>
+            </div>
+          </ng-container>
           <button type="button" (click)="auth.logout()" class="hover:text-accent">Cerrar sesión</button>
         </ng-container>
         <ng-template #guestLinks>
@@ -34,6 +45,19 @@
       14FLY © 2025</div>
   </footer>
 </div>
+
+<!-- Backdrop para cerrar menú Admin al hacer click fuera -->
+<div *ngIf="adminMenuOpen" class="fixed inset-0 z-10" (click)="closeAdminMenu()"></div>
+
+<!-- Admin Import Modal -->
+<app-admin-import-modal
+  [open]="showAdminImport"
+  [uploading]="uploading"
+  [summary]="importSummary"
+  (closed)="closeAdminImportModal()"
+  (upload)="uploadReservationsXML($event)"
+  (viewDiagram)="goToDiagram()"
+></app-admin-import-modal>
 
 <!-- Global toasts overlay -->
 <app-toast-container />

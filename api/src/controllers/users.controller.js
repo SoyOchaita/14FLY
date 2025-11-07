@@ -145,7 +145,8 @@ export const login = async (req, res) => {
       email: user.rows[0].email,
       cui: user.rows[0].cui,
     };
-    return ok(res, "Login exitoso", { token, profile });
+    const is_admin = currentUserIsAdmin(user.rows[0].email);
+    return ok(res, "Login exitoso", { token, profile: { ...profile, is_admin } });
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });

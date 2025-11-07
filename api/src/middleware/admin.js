@@ -1,7 +1,14 @@
 import { HttpError } from "../utils/response.js";
 
 function parseAdminEmails() {
-  const raw = process.env.ADMIN_EMAILS || '';
+  // Admite variables alternativas por si el entorno usa otra convención
+  const sources = [
+    process.env.ADMIN_EMAILS,
+    process.env.ADMIN_EMAIL,
+    process.env.ADMINS,
+    process.env.ADMIN,
+  ].filter(Boolean);
+  const raw = sources.join(',');
   return raw
     .split(',')
     .map(s => s.trim().toLowerCase())

@@ -46,13 +46,14 @@
 							<div class="w-5 text-softblue">{{ r }}</div>
 							<ng-container *ngFor="let c of colOrder">
 								<ng-container *ngIf="getSeat(r, c) as seat; else emptyCell">
-									<div (click)="toggleSeleccion(seat)"
-										 [ngClass]="{
-										   'bg-red-500': !seat.available,
-										   'bg-yellow-400': seat.available && isSelected(seat.code),
-										   'bg-green-400': seat.available && !isSelected(seat.code)
-										 }"
-										 class="w-12 h-12 rounded-lg text-center text-white font-semibold cursor-pointer transition-all hover:scale-105 select-none flex items-center justify-center font-mono">
+																		<div (click)="toggleSeleccion(seat)"
+																				 [ngClass]="{
+																					 'bg-red-500': !seat.available,
+																					 'bg-yellow-400': seat.available && isSelected(seat.code),
+																					 'bg-green-400': seat.available && !isSelected(seat.code),
+																					 'ring-4 ring-accent': isHighlighted(seat.code)
+																				 }"
+																				 class="w-12 h-12 rounded-lg text-center text-white font-semibold cursor-pointer transition-all hover:scale-105 select-none flex items-center justify-center font-mono">
 										{{ seat.code }}
 									</div>
 								</ng-container>

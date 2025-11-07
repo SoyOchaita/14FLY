@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReservasService } from '../reservas.service';
 import { ToastService } from '../../ui/toast/toast.service';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { EditReservaModalComponent } from '../edit-modal/edit-reserva-modal.component';
 
 @Component({
@@ -23,7 +23,9 @@ export class CrearComponent implements OnInit {
   };
   seleccionados: Array<{ code: string; full_name: string; cui: string; has_bag: boolean }> = [];
   loading = false;
-  constructor(private reservas: ReservasService, private toast: ToastService, private router: Router) {}
+  constructor(private reservas: ReservasService, private toast: ToastService, private router: Router, private route: ActivatedRoute) {}
+  // resaltado de asientos importados
+  private highlightSet = new Set<string>();
   // Modal para selección aleatoria
   showRandomModal = false;
   modalQuantity = 1;
@@ -53,6 +55,11 @@ export class CrearComponent implements OnInit {
   
 
   ngOnInit(): void {
+    // leer códigos a resaltar desde query param highlight
+    this.route.queryParamMap.subscribe((params) => {
+      const hl = (params.get('highlight') || '').split(',').map(s => s.trim()).filter(Boolean);
+      this.highlightSet = new Set(hl);
+    });
     this.cargarMapa();
   }
 
@@ -259,6 +266,10 @@ export class CrearComponent implements OnInit {
 
   isSelected(code: string): boolean {
     return this.seleccionados.some((s) => s.code === code);
+  }
+
+  isHighlighted(code: string): boolean {
+    return this.highlightSet.has(code);
   }
 
   // Helpers de disponibilidad y selección aleatoria

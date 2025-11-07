@@ -1,0 +1,65 @@
+<div *ngIf="open" class="fixed inset-0 z-[70] flex items-center justify-center">
+  <div class="absolute inset-0 bg-black/60" (click)="close()"></div>
+  <div class="relative neo-card p-6 w-full max-w-3xl">
+    <h4 class="text-lg font-semibold text-white mb-3">Seleccionar asiento</h4>
+
+    <div class="flex items-center gap-2 mb-3">
+      <button class="px-3 py-1 rounded-full text-sm"
+              [ngClass]="currentClassLabel==='Negocios' ? 'bg-softblue text-dark' : 'bg-white/10 text-softblue'"
+              (click)="setClass('Negocios')">Negocios</button>
+      <button class="px-3 py-1 rounded-full text-sm"
+              [ngClass]="currentClassLabel==='Económica' ? 'bg-softblue text-dark' : 'bg-white/10 text-softblue'"
+              (click)="setClass('Económica')">Económica</button>
+    </div>
+
+    <div *ngIf="loading" class="text-softblue">Cargando asientos…</div>
+
+    <div *ngIf="!loading" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="md:col-span-2">
+        <div class="flex items-center gap-2 pl-6 mb-2">
+          <div class="w-5"></div>
+          <div *ngFor="let c of colOrder" class="w-10 text-center text-softblue font-mono">{{ c }}</div>
+        </div>
+        <div class="space-y-1">
+          <div *ngFor="let group of rowGroups; let gi = index" [class.mt-2]="gi>0" class="space-y-1">
+            <div *ngFor="let r of group" class="flex items-center gap-2">
+              <div class="w-5 text-softblue">{{ r }}</div>
+              <ng-container *ngFor="let c of colOrder">
+                <ng-container *ngIf="getSeat(r, c) as seat; else emptyCell">
+                  <div (click)="onSelectSeat(seat.code)"
+                       [ngClass]="{
+                         'bg-yellow-400': chosenCode===seat.code,
+                         'bg-green-400': chosenCode!==seat.code && seat.available,
+                         'bg-red-500': !seat.available
+                       }"
+                       class="relative w-10 h-10 rounded-lg text-center text-white font-semibold cursor-pointer transition-all hover:scale-105 select-none flex items-center justify-center font-mono">
+                    {{ seat.code }}
+                  </div>
+                </ng-container>
+                <ng-template #emptyCell>
+                  <div class="w-10 h-10 rounded-lg opacity-30 border border-white/10"></div>
+                </ng-template>
+              </ng-container>
+            </div>
+          </div>
+        </div>
+        <p class="text-softblue/80 text-xs mt-2">Verde: disponible · Amarillo: seleccionado · Rojo: ocupado</p>
+      </div>
+
+      <div>
+        <div class="p-3 rounded-xl bg-white/5 border border-white/10 text-softblue text-sm">
+          <div class="text-white/90 font-semibold">Resumen</div>
+          <div class="mt-2 space-y-1">
+            <div class="flex justify-between"><span>Clase</span><span class="text-emerald-300 font-semibold">{{ currentClassLabel }}</span></div>
+            <div class="flex justify-between"><span>Asiento</span><span class="text-white font-semibold">{{ chosenCode || '—' }}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3 mt-5">
+      <button class="px-4 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="close()">Cancelar</button>
+      <button class="px-4 py-2 rounded-lg bg-softblue text-dark hover:opacity-90 disabled:opacity-50" [disabled]="!chosenCode" (click)="confirm()">Usar asiento</button>
+    </div>
+  </div>
+</div>

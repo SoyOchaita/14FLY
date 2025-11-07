@@ -2,6 +2,14 @@ import { pool } from "../db/pool.js";
 import { ok } from "../utils/response.js";
 import express from "express";
 
+// Precios base por clase (configurables vía ENV)
+const BUSINESS_PRICE = Number(process.env.BUSINESS_PRICE || 1500);
+const ECONOMY_PRICE = Number(process.env.ECONOMY_PRICE || 500);
+function basePriceForClass(seatClassName) {
+  const sc = String(seatClassName || '').toLowerCase();
+  return sc.includes('negocio') ? BUSINESS_PRICE : ECONOMY_PRICE;
+}
+
 export const getSummary = async (req, res) => {
   try {
     const [{ rows: rUsers }, { rows: rSeatsOcc }, { rows: rSeatsFree }, { rows: rRes }] = await Promise.all([
@@ -95,16 +103,40 @@ export const importReservationsXML = async (req, res) => {
       const m = block.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i'));
       return m ? m[1].trim() : '';
     };
-
-    for (let i = 0; i < seatBlocks.length; i++) {
-      const blk = seatBlocks[i];
+    // Pre-resolver usuarios y VIP elegibilidad por lote (por email)
+    const entries = seatBlocks.map((blk) => {
       const seatNumber = getTag(blk, 'seatNumber');
       const passengerName = getTag(blk, 'passengerName');
       const userEmail = getTag(blk, 'user');
       const idNumber = getTag(blk, 'idNumber');
       const hasLuggage = /^true$/i.test(getTag(blk, 'hasLuggage'));
       const reservationDateStr = getTag(blk, 'reservationDate');
+      return { blk, seatNumber, passengerName, userEmail, idNumber, hasLuggage, reservationDateStr };
+    });
 
+    const emails = Array.from(new Set(entries.map(e => e.userEmail).filter(Boolean)));
+    const userMap = new Map(); // email -> user_id
+    if (emails.length) {
+      const uqAll = await client.query('SELECT user_id, email FROM users WHERE email = ANY($1::text[])', [emails]);
+      for (const r of uqAll.rows) userMap.set(r.email, r.user_id);
+    }
+    // Construir mapa de reservas actuales por usuario para determinar VIP (antes del lote)
+    const userIds = Array.from(new Set(Array.from(userMap.values())));
+    const vipMap = new Map(); // email -> boolean
+    if (userIds.length) {
+      const cnt = await client.query(
+        'SELECT user_id, COUNT(*)::int AS cnt FROM reservations WHERE user_id = ANY($1::int[]) GROUP BY user_id',
+        [userIds]
+      );
+      const countMap = new Map(cnt.rows.map(r => [r.user_id, r.cnt]));
+      for (const [email, uid] of userMap.entries()) {
+        const before = countMap.get(uid) || 0;
+        vipMap.set(email, before >= 5);
+      }
+    }
+
+    for (let i = 0; i < entries.length; i++) {
+      const { seatNumber, passengerName, userEmail, idNumber, hasLuggage, reservationDateStr } = entries[i];
       const ctx = { seatNumber, passengerName, userEmail, idNumber };
       // Validaciones básicas
       if (!seatNumber || !passengerName || !userEmail || !idNumber) {
@@ -114,12 +146,11 @@ export const importReservationsXML = async (req, res) => {
 
       try {
         // Usuario debe existir
-        const uq = await client.query('SELECT user_id FROM users WHERE email=$1', [userEmail]);
-        if (!uq.rows.length) {
+        const userId = userMap.get(userEmail);
+        if (!userId) {
           errors.push({ ...ctx, error: 'usuario-no-existe' });
           continue;
         }
-        const userId = uq.rows[0].user_id;
 
         // Asiento debe existir y estar libre
         const sq = await client.query('SELECT seat_id, is_occupied, seat_class FROM seats WHERE seat_number=$1', [seatNumber]);
@@ -132,6 +163,11 @@ export const importReservationsXML = async (req, res) => {
           continue;
         }
         const seatId = sq.rows[0].seat_id;
+        const seatClassName = sq.rows[0].seat_class || '';
+        const priceBase = basePriceForClass(seatClassName);
+        const vipEligible = !!vipMap.get(userEmail);
+        const discount = vipEligible ? Math.round(priceBase * 0.10 * 100) / 100 : 0;
+        const total = Math.max(0, priceBase - discount);
 
         // Pasajero: crear/actualizar por CUI
         const px = await client.query(
@@ -139,11 +175,11 @@ export const importReservationsXML = async (req, res) => {
            VALUES ($1,$2)
            ON CONFLICT (cui) DO UPDATE SET full_name = COALESCE(EXCLUDED.full_name, passengers.full_name)
            RETURNING passenger_id, full_name`,
-          [passengerName, String(idNumber).replace(/\s|-/g,'')]
+          [passengerName, String(idNumber).replace(/[\s\-]/g,'')]
         );
         const passengerId = px.rows[0].passenger_id;
 
-        // Marcar asiento y crear reserva (sin precios; objetivo: asignación)
+        // Marcar asiento y crear reserva con precios correctos
         await client.query('BEGIN');
         const up = await client.query('UPDATE seats SET is_occupied=true WHERE seat_id=$1 AND is_occupied=false RETURNING seat_id', [seatId]);
         if (!up.rows.length) {
@@ -162,11 +198,11 @@ export const importReservationsXML = async (req, res) => {
 
         await client.query(
           `INSERT INTO reservations(user_id, seat_id, passenger_id, has_luggage, price_base, discount, modification_fee, total_price, reservation_date, batch_id)
-           VALUES ($1,$2,$3,$4,0,0,0,0,COALESCE($5, NOW()), NULL)`,
-          [userId, seatId, passengerId, hasLuggage, parsedDate]
+           VALUES ($1,$2,$3,$4,$5,$6,0,$7,COALESCE($8, NOW()), NULL)`,
+          [userId, seatId, passengerId, hasLuggage, priceBase, discount, total, parsedDate]
         );
         await client.query('COMMIT');
-        successes.push(ctx);
+        successes.push({ ...ctx, price_base: priceBase, discount, total_price: total, vip_applied: discount > 0 });
       } catch (e) {
         try { await client.query('ROLLBACK'); } catch (_) {}
         errors.push({ ...ctx, error: e.message });
@@ -174,7 +210,18 @@ export const importReservationsXML = async (req, res) => {
     }
 
     const elapsedMs = Date.now() - started;
-    return res.json({ success: true, message: 'Importación completada', data: { total: seatBlocks.length, ok: successes.length, errors: errors.length, elapsedMs, successes, errors } });
+    return res.json({
+      success: true,
+      message: 'Importación completada',
+      data: {
+        total: seatBlocks.length,
+        ok: successes.length,
+        errorsCount: errors.length,
+        elapsedMs,
+        successes,
+        errors
+      }
+    });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message, data: null });
   } finally {

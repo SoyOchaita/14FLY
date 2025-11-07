@@ -1,0 +1,41 @@
+<div class="container max-w-3xl mx-auto py-8">
+  <h1 class="text-2xl font-semibold text-white mb-6">Mi perfil</h1>
+
+  <div *ngIf="loading" class="text-softblue">Cargando…</div>
+  <div *ngIf="!loading && error" class="text-red-400">{{ error }}</div>
+
+  <div *ngIf="!loading && !error && profile" class="bg-dark/60 border border-white/10 rounded-xl p-5 shadow-lg">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <div class="text-softblue/70 text-sm">Nombre</div>
+        <div class="text-white font-medium">{{ profile.full_name || profile.name }}</div>
+      </div>
+      <div>
+        <div class="text-softblue/70 text-sm">Correo</div>
+        <div class="text-white font-medium">{{ profile.email }}</div>
+      </div>
+      <div>
+        <div class="text-softblue/70 text-sm">CUI</div>
+        <div class="text-white font-medium">{{ profile.cui }}</div>
+      </div>
+      <div>
+        <div class="text-softblue/70 text-sm">Creado</div>
+        <div class="text-white font-medium">{{ profile.created_at | date:'short' }}</div>
+      </div>
+      <div>
+        <div class="text-softblue/70 text-sm">Rol</div>
+        <div class="text-white font-medium">{{ profile.is_admin ? 'Administrador' : 'Usuario' }}</div>
+      </div>
+      <div *ngIf="vipInfo as v">
+        <div class="text-softblue/70 text-sm">VIP</div>
+        <div class="text-white font-medium">{{ v.isVIP ? 'Sí' : 'No' }}</div>
+      </div>
+    </div>
+
+    <div *ngIf="vipInfo as v" class="mt-6 border-t border-white/10 pt-4">
+      <div class="text-softblue/70 text-sm mb-1">Resumen de reservas</div>
+      <div class="text-white">Total reservas: <strong>{{ v.reservations }}</strong></div>
+      <div class="text-softblue/80 text-sm mt-1">Para ver el detalle, ve a <a class="text-accent underline" routerLink="/reservas/mis-reservas">Mis reservas</a>.</div>
+    </div>
+  </div>
+</div>

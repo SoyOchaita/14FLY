@@ -14,7 +14,31 @@ import reservationRoutes from "./routes/reservations.routes.js";
 import configRoutes from "./routes/config.routes.js";
 import { getTransporter, sendMail, renderTemplate } from "./utils/mailer.js";
 
-dotenv.config();
+// Cargar variables de entorno con tolerancia a monorepo: intenta múltiples ubicaciones
+(() => {
+  // 1) carga por defecto (cwd)
+  dotenv.config();
+  // 2) intenta rutas conocidas relativas al cwd
+  const candidates = [
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(process.cwd(), '..', '.env'),
+    path.resolve(process.cwd(), '..', '..', '.env'),
+    path.resolve(process.cwd(), 'api', '.env'),
+    path.resolve(process.cwd(), '..', 'api', '.env'),
+  ];
+  let loaded = 0;
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        const r = dotenv.config({ path: p, override: false });
+        if (!r.error) loaded++;
+      }
+    } catch { /* ignore */ }
+  }
+  if ((process.env.NODE_ENV || 'development') !== 'production') {
+    console.log(chalk.gray(`[env] .env files loaded: ${loaded}`));
+  }
+})();
 
 // =======================================
 // CONFIGURACIÓN BASE
@@ -24,6 +48,16 @@ app.use(cors());
 app.use(express.json());
 // Body parser para XML sólo en rutas que lo requieren
 app.use('/api/reports/reservations.xml/upload', xmlBodyParser);
+
+// Log de admins configurados (solo en desarrollo) para depuración de roles
+if ((process.env.NODE_ENV || 'development') !== 'production') {
+  const adminsRaw = String(process.env.ADMIN_EMAILS || '').trim();
+  const adminsList = adminsRaw
+    .split(',')
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
+  console.log(chalk.gray(`[admin] ADMIN_EMAILS: ${adminsList.length} usuario(s) configurado(s)`));
+}
 
 // Utilidad local para escapar HTML en fragmentos dinámicos
 function escapeHtml(s) {
