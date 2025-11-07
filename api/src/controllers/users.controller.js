@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { pool } from "../db/pool.js";
 import { ok, HttpError } from "../utils/response.js";
+import { currentUserIsAdmin } from "../middleware/admin.js";
 import { validateEmail, allowedDomainsForMessage } from "../utils/emailValidator.js";
 import { validateFullName } from "../utils/validators.js";
 import { validateCUI } from "../services/cui.service.js";
@@ -107,7 +108,9 @@ export const me = async (req, res) => {
       [id]
     );
     if (!rows.length) throw new HttpError("Usuario no encontrado.", 404);
-    return ok(res, "Perfil de usuario", rows[0]);
+    const profile = rows[0];
+    const is_admin = currentUserIsAdmin(profile.email);
+    return ok(res, "Perfil de usuario", { ...profile, is_admin });
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });

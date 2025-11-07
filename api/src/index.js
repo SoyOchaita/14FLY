@@ -6,6 +6,7 @@ import fs from "fs";
 import path from "path";
 import { pool } from "./db/pool.js";
 import reportsRoutes from "./routes/reports.routes.js";
+import { xmlBodyParser } from "./controllers/reports.controller.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import userRoutes from "./routes/users.routes.js";
 import seatRoutes from "./routes/seats.routes.js";
@@ -21,6 +22,8 @@ dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
+// Body parser para XML sólo en rutas que lo requieren
+app.use('/api/reports/reservations.xml/upload', xmlBodyParser);
 
 // Utilidad local para escapar HTML en fragmentos dinámicos
 function escapeHtml(s) {
