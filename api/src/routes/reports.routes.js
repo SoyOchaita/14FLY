@@ -1,5 +1,5 @@
 import express from "express";
-import { getSummary, exportReservationsXML, importReservationsXML } from "../controllers/reports.controller.js";
+import { getSummary, exportReservationsXML, importReservationsXML, adminDashboard } from "../controllers/reports.controller.js";
 import { auth } from "../middleware/auth.js";
 import { isAdmin } from "../middleware/admin.js";
 
@@ -9,5 +9,6 @@ const router = express.Router();
 router.get('/', getSummary);
 router.get('/reservations.xml', auth, isAdmin, exportReservationsXML);
 router.post('/reservations.xml/upload', auth, isAdmin, importReservationsXML);
+router.get('/admin-dashboard', auth, isAdmin, adminDashboard);
 
 export default router;

@@ -139,6 +139,19 @@ export const createReservation = async (req, res) => {
     }
 
     await client.query("COMMIT");
+
+    // Log de actividad de creación (manual o aleatoria)
+    try {
+      const mode = selectionMode === 'random' ? 'random' : 'manual';
+      for (const r of created) {
+        await pool.query(
+          `INSERT INTO reservation_activity(user_id, reservation_id, type, selection_mode) VALUES ($1,$2,'created',$3)`,
+          [uid, r.reservation_id, mode]
+        );
+      }
+    } catch (logErr) {
+      console.warn('No se pudo registrar actividad de creación:', logErr.message);
+    }
     // Enviar correo de confirmación de creación (best-effort). Para evitar inconsistencias,
     // se calcula el resumen usando TODAS las reservas del mismo batch en la BD.
     try {
@@ -456,6 +469,16 @@ export const updateReservation = async (req, res) => {
       console.warn('Fallo al preparar correo de modificación:', mailErr.message);
     }
 
+    // Log de actividad de modificación
+    try {
+      await pool.query(
+        `INSERT INTO reservation_activity(user_id, reservation_id, type) VALUES ($1,$2,'modified')`,
+        [uid, Number(id)]
+      );
+    } catch (logErr) {
+      console.warn('No se pudo registrar actividad de modificación:', logErr.message);
+    }
+
     return ok(res, "Reserva actualizada", { reservation_id: Number(id), total, base, seatChanged, vip_applied: discount > 0, discount, discount_added: discountAdded, fee_accumulated: newFee, fee_added: seatChanged ? base * 0.10 : 0 });
   } catch (err) {
     const status = err.status || 500;
@@ -533,6 +556,16 @@ export const cancelReservation = async (req, res) => {
     await pool.query("DELETE FROM reservations WHERE reservation_id=$1", [id]);
     await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id=$1", [seatId]);
 
+    // Log de actividad de cancelación
+    try {
+      await pool.query(
+        `INSERT INTO reservation_activity(user_id, reservation_id, type) VALUES ($1,$2,'cancelled')`,
+        [uid, Number(id)]
+      );
+    } catch (logErr) {
+      console.warn('No se pudo registrar actividad de cancelación:', logErr.message);
+    }
+
     // Enviar correo (best-effort)
     if (userEmail) {
       try {
@@ -598,6 +631,15 @@ export const cancelReservationByCUIAndSeat = async (req, res) => {
     // Eliminar reserva y liberar asiento
     await pool.query("DELETE FROM reservations WHERE reservation_id=$1", [row.reservation_id]);
     await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id=$1", [row.seat_id]);
+
+    try {
+      await pool.query(
+        `INSERT INTO reservation_activity(user_id, reservation_id, type) VALUES ($1,$2,'cancelled')`,
+        [uid, row.reservation_id]
+      );
+    } catch (logErr) {
+      console.warn('No se pudo registrar actividad de cancelación (CUI+seat):', logErr.message);
+    }
 
     // Enviar correo (best-effort, no bloqueante si falla)
     if (row.email) {
@@ -669,6 +711,15 @@ export const cancelBatchReservations = async (req, res) => {
     const reservationIds = q.rows.map(r => r.reservation_id);
     await pool.query("DELETE FROM reservations WHERE reservation_id = ANY($1::int[])", [reservationIds]);
     await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id = ANY($1::int[])", [seatIds]);
+
+    try {
+      const values = reservationIds.map((rid) => `(${uid}, ${Number(rid)}, 'cancelled')`).join(',');
+      if (values) {
+        await pool.query(`INSERT INTO reservation_activity(user_id, reservation_id, type) VALUES ${values}`);
+      }
+    } catch (logErr) {
+      console.warn('No se pudo registrar actividad de cancelación (batch):', logErr.message);
+    }
 
     // Enviar correo si existe email (usar el primero)
     const email = q.rows[0]?.email;

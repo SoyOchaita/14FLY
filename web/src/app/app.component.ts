@@ -114,6 +114,10 @@ export class AppComponent implements OnInit {
     this.router.navigate(['/reservas/crear'], { queryParams: hl ? { highlight: hl } : {} });
   }
 
+  goToAdminReport() {
+    this.router.navigate(['/admin/reportes']);
+  }
+
   toggleAdminMenu() { this.adminMenuOpen = !this.adminMenuOpen; }
   closeAdminMenu() { this.adminMenuOpen = false; }
 }

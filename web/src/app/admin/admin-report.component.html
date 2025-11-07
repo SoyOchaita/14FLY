@@ -1,0 +1,129 @@
+<section class="p-6">
+  <h2 class="text-2xl font-semibold text-white mb-4">Panel de reportes</h2>
+
+  <div *ngIf="loading" class="text-softblue">Cargando…</div>
+  <div *ngIf="!loading && error" class="text-red-400">{{ error }}</div>
+
+  <ng-container *ngIf="!loading && data as d">
+    <!-- Tarjetas resumen -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="neo-card p-4">
+        <div class="text-softblue/70">Usuarios creados</div>
+        <div class="text-2xl font-bold text-white">{{ d.users_total }}</div>
+      </div>
+      <div class="neo-card p-4">
+        <div class="text-softblue/70">Reservas totales</div>
+        <div class="text-2xl font-bold text-white">{{ d.reservations_total }}</div>
+      </div>
+      <div class="neo-card p-4">
+        <div class="text-softblue/70">Modificadas</div>
+        <div class="text-2xl font-bold text-white">{{ d.modified }}</div>
+      </div>
+      <div class="neo-card p-4">
+        <div class="text-softblue/70">Canceladas</div>
+        <div class="text-2xl font-bold text-white">{{ d.cancelled }}</div>
+      </div>
+      <div class="neo-card p-4">
+        <div class="text-softblue/70">Seleccionadas por usuario</div>
+        <div class="text-2xl font-bold text-white">{{ d.selections.manual }}</div>
+      </div>
+      <div class="neo-card p-4">
+        <div class="text-softblue/70">Seleccionadas aleatorio</div>
+        <div class="text-2xl font-bold text-white">{{ d.selections.random }}</div>
+      </div>
+    </div>
+
+    <!-- Ocupación por clase -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="neo-card p-4">
+        <div class="flex items-center justify-between">
+          <div class="text-softblue/80">Negocios</div>
+          <div class="text-softblue/70 text-sm">{{ ratioBusyBusiness() }}</div>
+        </div>
+        <div class="mt-2 flex items-center gap-2 text-sm">
+          <span class="px-2 py-1 rounded bg-red-500/10 border border-red-400/30 text-red-300">Ocupados: {{ d.seats.business.occupied }}</span>
+          <span class="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-400/30 text-emerald-300">Libres: {{ d.seats.business.free }}</span>
+        </div>
+        <div class="mt-3">
+          <div class="flex items-center gap-2 pl-6 mb-1">
+            <div class="w-5"></div>
+            <div *ngFor="let c of colOrderFor('Negocios')" class="w-10 text-center text-softblue font-mono">{{ c }}</div>
+          </div>
+          <div class="space-y-1">
+            <div *ngFor="let group of rowGroupsFor('Negocios'); let gi = index" [class.mt-2]="gi>0" class="space-y-1">
+              <div *ngFor="let r of group" class="flex items-center gap-2">
+                <div class="w-5 text-softblue">{{ r }}</div>
+                <ng-container *ngFor="let c of colOrderFor('Negocios')">
+                  <ng-container *ngIf="getSeat('Negocios', r, c) as seat; else emptyCellB">
+                    <div [ngClass]="{ 'bg-green-400': seat.available, 'bg-red-500': !seat.available }" class="w-10 h-10 rounded-lg text-center text-white font-semibold select-none flex items-center justify-center font-mono">{{ seat.code }}</div>
+                  </ng-container>
+                </ng-container>
+              </div>
+            </div>
+          </div>
+          <ng-template #emptyCellB><div class="w-10 h-10 rounded-lg opacity-30 border border-white/10"></div></ng-template>
+        </div>
+      </div>
+      <div class="neo-card p-4">
+        <div class="flex items-center justify-between">
+          <div class="text-softblue/80">Económica</div>
+          <div class="text-softblue/70 text-sm">{{ ratioBusyEconomy() }}</div>
+        </div>
+        <div class="mt-2 flex items-center gap-2 text-sm">
+          <span class="px-2 py-1 rounded bg-red-500/10 border border-red-400/30 text-red-300">Ocupados: {{ d.seats.economy.occupied }}</span>
+          <span class="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-400/30 text-emerald-300">Libres: {{ d.seats.economy.free }}</span>
+        </div>
+        <div class="mt-3">
+          <div class="flex items-center gap-2 pl-6 mb-1">
+            <div class="w-5"></div>
+            <div *ngFor="let c of colOrderFor('Económica')" class="w-10 text-center text-softblue font-mono">{{ c }}</div>
+          </div>
+          <div class="space-y-1">
+            <div *ngFor="let group of rowGroupsFor('Económica'); let gi = index" [class.mt-2]="gi>0" class="space-y-1">
+              <div *ngFor="let r of group" class="flex items-center gap-2">
+                <div class="w-5 text-softblue">{{ r }}</div>
+                <ng-container *ngFor="let c of colOrderFor('Económica')">
+                  <ng-container *ngIf="getSeat('Económica', r, c) as seat; else emptyCellE">
+                    <div [ngClass]="{ 'bg-green-400': seat.available, 'bg-red-500': !seat.available }" class="w-10 h-10 rounded-lg text-center text-white font-semibold select-none flex items-center justify-center font-mono">{{ seat.code }}</div>
+                  </ng-container>
+                </ng-container>
+              </div>
+            </div>
+          </div>
+          <ng-template #emptyCellE><div class="w-10 h-10 rounded-lg opacity-30 border border-white/10"></div></ng-template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Por usuario -->
+    <div class="neo-card p-4">
+      <div class="text-softblue/80 font-semibold mb-3">Usuarios y actividad</div>
+      <div class="overflow-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-softblue/70">
+              <th class="text-left p-2">Usuario</th>
+              <th class="text-left p-2">Email</th>
+              <th class="text-right p-2">Reservas</th>
+              <th class="text-right p-2">Modificadas</th>
+              <th class="text-right p-2">Canceladas</th>
+              <th class="text-right p-2">Manual</th>
+              <th class="text-right p-2">Aleatorio</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let u of d.per_user" class="border-t border-white/10 text-white">
+              <td class="p-2">{{ u.full_name || '—' }}</td>
+              <td class="p-2">{{ u.email }}</td>
+              <td class="p-2 text-right">{{ u.reservations_total }}</td>
+              <td class="p-2 text-right">{{ u.modified }}</td>
+              <td class="p-2 text-right">{{ u.cancelled }}</td>
+              <td class="p-2 text-right">{{ u.created_manual }}</td>
+              <td class="p-2 text-right">{{ u.created_random }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </ng-container>
+</section>

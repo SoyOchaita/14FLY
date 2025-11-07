@@ -228,3 +228,70 @@ export const importReservationsXML = async (req, res) => {
     client.release();
   }
 };
+
+// GET /api/reports/admin-dashboard (admin)
+// Devuelve métricas globales y por usuario para el panel de administrador
+export const adminDashboard = async (req, res) => {
+  try {
+    // Métricas globales
+    const [usersTotalQ, seatsBizOccQ, seatsEcoOccQ, seatsBizFreeQ, seatsEcoFreeQ, resTotalQ, selManualQ, selRandomQ, modifiedQ, cancelledQ] = await Promise.all([
+      pool.query('SELECT COUNT(*)::int AS users_total FROM users'),
+      pool.query("SELECT COUNT(*)::int AS cnt FROM seats WHERE is_occupied=true AND LOWER(seat_class) LIKE '%negoc%'") ,
+      pool.query("SELECT COUNT(*)::int AS cnt FROM seats WHERE is_occupied=true AND LOWER(seat_class) LIKE '%econ%'") ,
+      pool.query("SELECT COUNT(*)::int AS cnt FROM seats WHERE is_occupied=false AND LOWER(seat_class) LIKE '%negoc%'") ,
+      pool.query("SELECT COUNT(*)::int AS cnt FROM seats WHERE is_occupied=false AND LOWER(seat_class) LIKE '%econ%'") ,
+      pool.query('SELECT COUNT(*)::int AS reservations_total FROM reservations'),
+      pool.query("SELECT COUNT(*)::int AS cnt FROM reservation_activity WHERE type='created' AND selection_mode='manual'"),
+      pool.query("SELECT COUNT(*)::int AS cnt FROM reservation_activity WHERE type='created' AND selection_mode='random'"),
+      pool.query("SELECT COUNT(*)::int AS cnt FROM reservation_activity WHERE type='modified'"),
+      pool.query("SELECT COUNT(*)::int AS cnt FROM reservation_activity WHERE type='cancelled'")
+    ]);
+
+    // Métricas por usuario (reservas, modificadas, canceladas, seleccionadas manual/aleatorio)
+    const perUser = await pool.query(`
+      WITH r AS (
+        SELECT user_id, COUNT(*)::int AS reservations_total
+        FROM reservations
+        GROUP BY user_id
+      ),
+      a AS (
+        SELECT user_id,
+               SUM(CASE WHEN type='modified' THEN 1 ELSE 0 END)::int AS modified,
+               SUM(CASE WHEN type='cancelled' THEN 1 ELSE 0 END)::int AS cancelled,
+               SUM(CASE WHEN type='created' AND selection_mode='manual' THEN 1 ELSE 0 END)::int AS created_manual,
+               SUM(CASE WHEN type='created' AND selection_mode='random' THEN 1 ELSE 0 END)::int AS created_random
+        FROM reservation_activity
+        GROUP BY user_id
+      )
+      SELECT u.user_id, u.full_name, u.email,
+             COALESCE(r.reservations_total, 0) AS reservations_total,
+             COALESCE(a.modified, 0) AS modified,
+             COALESCE(a.cancelled, 0) AS cancelled,
+             COALESCE(a.created_manual, 0) AS created_manual,
+             COALESCE(a.created_random, 0) AS created_random
+      FROM users u
+      LEFT JOIN r ON r.user_id = u.user_id
+      LEFT JOIN a ON a.user_id = u.user_id
+      ORDER BY reservations_total DESC, u.full_name ASC
+    `);
+
+    return ok(res, 'Resumen admin', {
+      users_total: usersTotalQ.rows[0]?.users_total || 0,
+      reservations_total: resTotalQ.rows[0]?.reservations_total || 0,
+      seats: {
+        business: { occupied: seatsBizOccQ.rows[0]?.cnt || 0, free: seatsBizFreeQ.rows[0]?.cnt || 0 },
+        economy: { occupied: seatsEcoOccQ.rows[0]?.cnt || 0, free: seatsEcoFreeQ.rows[0]?.cnt || 0 }
+      },
+      selections: {
+        manual: selManualQ.rows[0]?.cnt || 0,
+        random: selRandomQ.rows[0]?.cnt || 0
+      },
+      modified: modifiedQ.rows[0]?.cnt || 0,
+      cancelled: cancelledQ.rows[0]?.cnt || 0,
+      per_user: perUser.rows
+    });
+  } catch (err) {
+    const status = err.status || 500;
+    return res.status(status).json({ success: false, message: err.message, data: err.data || null });
+  }
+};

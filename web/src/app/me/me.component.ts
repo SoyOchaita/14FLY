@@ -15,6 +15,7 @@ export class MeComponent implements OnInit {
   error: string | null = null;
   profile: any = null;
   vipInfo: { isVIP: boolean; reservations: number } | null = null;
+  activity: { reservations: number; modified: number; cancelled: number; created_manual: number; created_random: number } | null = null;
 
   constructor(private http: HttpClient, private auth: AuthService) {}
 
@@ -45,6 +46,11 @@ export class MeComponent implements OnInit {
         this.vipInfo = { isVIP: !!data.isVIP, reservations: Number(data.reservations || 0) };
       },
       error: (_) => { /* opcional ocultar error aquí */ }
+    });
+    // Actividad extendida
+    this.http.get<any>('/api/users/me/activity', { headers }).subscribe({
+      next: (res) => { this.activity = res?.data || null; },
+      error: (_) => {}
     });
   }
 }

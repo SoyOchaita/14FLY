@@ -165,3 +165,29 @@ export const isVip = async (req, res) => {
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });
   }
 };
+
+// GET /api/users/me/activity
+export const myActivitySummary = async (req, res) => {
+  try {
+    const { id } = req.user;
+    const [resCountQ, actQ] = await Promise.all([
+      pool.query('SELECT COUNT(*)::int AS reservations FROM reservations WHERE user_id=$1', [id]),
+      pool.query(`SELECT
+        SUM(CASE WHEN type='modified' THEN 1 ELSE 0 END)::int AS modified,
+        SUM(CASE WHEN type='cancelled' THEN 1 ELSE 0 END)::int AS cancelled,
+        SUM(CASE WHEN type='created' AND selection_mode='manual' THEN 1 ELSE 0 END)::int AS created_manual,
+        SUM(CASE WHEN type='created' AND selection_mode='random' THEN 1 ELSE 0 END)::int AS created_random
+      FROM reservation_activity WHERE user_id=$1`, [id])
+    ]);
+    return ok(res, 'Actividad del usuario', {
+      reservations: resCountQ.rows[0]?.reservations || 0,
+      modified: actQ.rows[0]?.modified || 0,
+      cancelled: actQ.rows[0]?.cancelled || 0,
+      created_manual: actQ.rows[0]?.created_manual || 0,
+      created_random: actQ.rows[0]?.created_random || 0
+    });
+  } catch (err) {
+    const status = err.status || 500;
+    return res.status(status).json({ success: false, message: err.message, data: err.data || null });
+  }
+};

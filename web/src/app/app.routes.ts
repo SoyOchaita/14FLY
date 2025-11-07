@@ -5,6 +5,8 @@ import { CrearComponent } from './reservas/crear/crear.component';
 import { MisReservasComponent } from './reservas/mis-reservas/mis-reservas.component';
 import { authGuard, guestGuard } from './auth';
 import { MeComponent } from './me/me.component';
+import { AdminReportComponent } from './admin/admin-report.component';
+import { adminGuard } from './auth/admin.guard';
 
 export const routes: Routes = [
 	{ path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -14,5 +16,6 @@ export const routes: Routes = [
 	{ path: 'reservas/crear', component: CrearComponent, canActivate: [authGuard] },
 	{ path: 'reservas/mis-reservas', component: MisReservasComponent, canActivate: [authGuard] },
 	{ path: 'me', component: MeComponent, canActivate: [authGuard] },
+	{ path: 'admin/reportes', component: AdminReportComponent, canActivate: [authGuard, adminGuard] },
 	{ path: '**', redirectTo: 'login' }
 ];

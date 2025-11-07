@@ -131,13 +131,23 @@ export class CrearComponent implements OnInit {
   reservar() {
     if (!this.canConfirm) return;
     if (this.seleccionados.length < this.cantidad) return this.toast.warning('Selecciona todos los asientos requeridos.');
-    // Iniciar flujo paso a paso cuando hay más de 1
-    this.currentBatchId = crypto?.randomUUID ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2));
-    this.stepQueue = [...this.seleccionados];
-    this.stepResults = [];
-    this.stepLast = null;
-    this.stepRemaining = this.stepQueue.length;
-    this.reserveNextFromQueue();
+    // Enviar todos en una sola llamada (modo manual) manteniendo batch para emails existentes
+    const batchId = crypto?.randomUUID ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2));
+    const seatsPayload = this.seleccionados.map(s => ({ code: s.code, full_name: s.full_name, cui: s.cui, has_bag: s.has_bag }));
+    this.loading = true;
+    this.reservas.createReservation({ seats: seatsPayload, selectionMode: 'manual', batch_id: batchId }).subscribe({
+      next: (res) => {
+        const created = Array.isArray(res?.data) ? res.data : [];
+        this.confirmList = created;
+        this.showConfirmModal = true;
+        this.loading = false;
+        this.cargarMapa(true);
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.message || 'Error al reservar');
+        this.loading = false;
+      }
+    });
   }
 
   private reserveNextFromQueue() {
@@ -300,8 +310,23 @@ export class CrearComponent implements OnInit {
   confirmRandomModal() {
     const n = Math.min(Math.max(1, this.modalQuantity || 1), this.availableInClass());
     if (this.modalExceeded || this.availableInClass() === 0) return;
-    this.pickRandomSeats(n);
-    this.closeRandomModal();
+    // Generar pasajeros placeholder que luego el usuario puede editar (usar selección aleatoria en backend)
+    const passengers = Array.from({ length: n }).map(() => ({ full_name: 'Pasajero', cui: '0000000000000', has_bag: false }));
+    this.loading = true;
+    this.reservas.createReservation({ selectionMode: 'random', quantity: n, seatClass: this.tipo, seatsData: passengers }).subscribe({
+      next: (res) => {
+        const created = Array.isArray(res?.data) ? res.data : [];
+        this.confirmList = created;
+        this.showConfirmModal = true;
+        this.loading = false;
+        this.closeRandomModal();
+        this.cargarMapa(true);
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.message || 'Error al reservar aleatoriamente');
+        this.loading = false;
+      }
+    });
   }
 
   onModalQtyChange(val: number) {

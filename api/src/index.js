@@ -331,6 +331,20 @@ app.listen(PORT, HOST, async () => {
   let dbStatus = chalk.red("❌ Error");
   try {
     await pool.query("SELECT 1");
+    // Crear tabla de actividad si no existe (para métricas del panel admin)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reservation_activity (
+        activity_id SERIAL PRIMARY KEY,
+        user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        reservation_id INT,
+        type TEXT NOT NULL CHECK (type IN ('created','modified','cancelled')),
+        selection_mode TEXT CHECK (selection_mode IN ('manual','random')),
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_activity_user ON reservation_activity(user_id);
+      CREATE INDEX IF NOT EXISTS idx_activity_type ON reservation_activity(type);
+      CREATE INDEX IF NOT EXISTS idx_activity_created_at ON reservation_activity(created_at);
+    `);
     dbStatus = chalk.green("✅ Conectada");
   } catch (err) {
     console.error(chalk.red("Error de conexión a la base de datos:"), err.message);

@@ -35,6 +35,20 @@
     <div *ngIf="vipInfo as v" class="mt-6 border-t border-white/10 pt-4">
       <div class="text-softblue/70 text-sm mb-1">Resumen de reservas</div>
       <div class="text-white">Total reservas: <strong>{{ v.reservations }}</strong></div>
+      <div *ngIf="activity as a" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+        <div class="p-3 rounded bg-white/5 border border-white/10">
+          <div class="text-softblue/70 text-xs">Modificadas</div>
+          <div class="text-white font-semibold">{{ a.modified }}</div>
+        </div>
+        <div class="p-3 rounded bg-white/5 border border-white/10">
+          <div class="text-softblue/70 text-xs">Canceladas</div>
+          <div class="text-white font-semibold">{{ a.cancelled }}</div>
+        </div>
+        <div class="p-3 rounded bg-white/5 border border-white/10">
+          <div class="text-softblue/70 text-xs">Selecciones (Manual/Aleatorio)</div>
+          <div class="text-white font-semibold">{{ a.created_manual }}/{{ a.created_random }}</div>
+        </div>
+      </div>
       <div class="text-softblue/80 text-sm mt-1">Para ver el detalle, ve a <a class="text-accent underline" routerLink="/reservas/mis-reservas">Mis reservas</a>.</div>
     </div>
   </div>
