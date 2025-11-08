@@ -310,23 +310,12 @@ export class CrearComponent implements OnInit {
   confirmRandomModal() {
     const n = Math.min(Math.max(1, this.modalQuantity || 1), this.availableInClass());
     if (this.modalExceeded || this.availableInClass() === 0) return;
-    // Generar pasajeros placeholder que luego el usuario puede editar (usar selección aleatoria en backend)
-    const passengers = Array.from({ length: n }).map(() => ({ full_name: 'Pasajero', cui: '0000000000000', has_bag: false }));
-    this.loading = true;
-    this.reservas.createReservation({ selectionMode: 'random', quantity: n, seatClass: this.tipo, seatsData: passengers }).subscribe({
-      next: (res) => {
-        const created = Array.isArray(res?.data) ? res.data : [];
-        this.confirmList = created;
-        this.showConfirmModal = true;
-        this.loading = false;
-        this.closeRandomModal();
-        this.cargarMapa(true);
-      },
-      error: (err) => {
-        this.toast.error(err?.error?.message || 'Error al reservar aleatoriamente');
-        this.loading = false;
-      }
-    });
+    // Nuevo flujo: solo selecciona asientos aleatorios localmente y permite que el usuario ingrese datos.
+    // Evitamos enviar placeholders inválidos (CUI vacío / genérico) al backend antes de que el usuario edite.
+    this.pickRandomSeats(n);
+    this.cantidad = this.seleccionados.length; // sincronizar cantidad con lo elegido
+    this.closeRandomModal();
+    this.toast.info('Asientos seleccionados aleatoriamente. Completa los datos y confirma la reserva.');
   }
 
   onModalQtyChange(val: number) {
