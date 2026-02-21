@@ -12,6 +12,7 @@ import userRoutes from "./routes/users.routes.js";
 import seatRoutes from "./routes/seats.routes.js";
 import reservationRoutes from "./routes/reservations.routes.js";
 import configRoutes from "./routes/config.routes.js";
+import auditLogRoutes from "./routes/auditLog.routes.js";
 import { getTransporter, sendMail, renderTemplate } from "./utils/mailer.js";
 
 // Cargar variables de entorno con tolerancia a monorepo: intenta múltiples ubicaciones
@@ -93,6 +94,7 @@ app.use("/api/seats", seatRoutes);
 app.use("/api/reservations", reservationRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/config", configRoutes);
+app.use("/api/audit", auditLogRoutes);
 
 // Endpoints de salud
 app.get("/", (req, res) => res.send("🛫 API 14FLY en ejecución"));

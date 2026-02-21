@@ -11,6 +11,7 @@
           <span class="hidden sm:inline text-softblue/80">Hola, <span class="text-white">{{ auth.displayName() }}</span></span>
           <a routerLink="/reservas/crear" routerLinkActive="text-accent" class="hover:text-accent">Nueva reserva</a>
           <a routerLink="/reservas/mis-reservas" routerLinkActive="text-accent" class="hover:text-accent">Mis reservas</a>
+          <a routerLink="/reservas/historial" routerLinkActive="text-accent" class="hover:text-accent">📊 Historial</a>
           <a routerLink="/me" routerLinkActive="text-accent" class="hover:text-accent">Mi perfil</a>
           <!-- Admin actions -->
           <ng-container *ngIf="auth.isAdmin()">

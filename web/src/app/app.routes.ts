@@ -3,6 +3,7 @@ import { LoginComponent } from './auth/login/login.component';
 import { RegisterComponent } from './auth/register/register.component';
 import { CrearComponent } from './reservas/crear/crear.component';
 import { MisReservasComponent } from './reservas/mis-reservas/mis-reservas.component';
+import { HistorialAuditoriaComponent } from './reservas/historial-auditoria.component';
 import { authGuard, guestGuard } from './auth';
 import { MeComponent } from './me/me.component';
 import { AdminReportComponent } from './admin/admin-report.component';
@@ -15,6 +16,7 @@ export const routes: Routes = [
 	{ path: 'reservas', redirectTo: 'reservas/mis-reservas', pathMatch: 'full' },
 	{ path: 'reservas/crear', component: CrearComponent, canActivate: [authGuard] },
 	{ path: 'reservas/mis-reservas', component: MisReservasComponent, canActivate: [authGuard] },
+	{ path: 'reservas/historial', component: HistorialAuditoriaComponent, canActivate: [authGuard] },
 	{ path: 'me', component: MeComponent, canActivate: [authGuard] },
 	{ path: 'admin/reportes', component: AdminReportComponent, canActivate: [authGuard, adminGuard] },
 	{ path: '**', redirectTo: 'login' }

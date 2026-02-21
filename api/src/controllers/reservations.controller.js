@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { ok, HttpError } from "../utils/response.js";
 import { validateCUI, validateFullName } from "../utils/validators.js";
 import { sendMail, renderTemplate } from "../utils/mailer.js";
+import { AuditLog } from "../utils/auditLog.js";
 
 // Precios base por clase (configurables vía ENV)
 const BUSINESS_PRICE = Number(process.env.BUSINESS_PRICE || 1500);
@@ -294,7 +295,7 @@ export const getMyReservations = async (req, res) => {
          FROM reservations r
          JOIN seats s ON s.seat_id = r.seat_id
          JOIN passengers p ON p.passenger_id = r.passenger_id
-        WHERE r.user_id = $1
+        WHERE r.user_id = $1 AND r.deleted_at IS NULL
         ORDER BY r.reservation_date DESC`,
       [req.user.id]
     );
@@ -537,33 +538,52 @@ export const cancelReservation = async (req, res) => {
     if (!req.user || !req.user.id) throw new HttpError("No autenticado", 401);
     const { id } = req.params;
     const uid = req.user.id;
-    // Obtener detalles antes de eliminar para informar al usuario
+    const { reason = null } = req.body || {};
+    
+    // Obtener detalles antes de marcar como eliminado
     const { rows } = await pool.query(
-      `SELECT r.reservation_id, r.seat_id, s.seat_number, p.full_name, p.cui, u.email
+      `SELECT r.reservation_id, r.seat_id, s.seat_number, p.full_name, p.cui, u.email, r.status, r.price_base, r.total_price
          FROM reservations r
          JOIN seats s ON s.seat_id = r.seat_id
          JOIN passengers p ON p.passenger_id = r.passenger_id
          JOIN users u ON u.user_id = r.user_id
-        WHERE r.reservation_id=$1 AND r.user_id=$2`,
+        WHERE r.reservation_id=$1 AND r.user_id=$2 AND r.deleted_at IS NULL`,
       [id, uid]
     );
-    if (!rows.length) throw new HttpError("Reserva no encontrada", 404);
+    if (!rows.length) throw new HttpError("Reserva no encontrada o ya cancelada", 404);
+    
     const seatId = rows[0].seat_id;
     const seatNumber = rows[0].seat_number;
     const paxName = rows[0].full_name;
     const paxCui = rows[0].cui;
     const userEmail = rows[0].email;
-    await pool.query("DELETE FROM reservations WHERE reservation_id=$1", [id]);
+    const reservation = rows[0];
+    
+    // SOFT DELETE: marcar como eliminado en lugar de DELETE
+    await pool.query("UPDATE reservations SET deleted_at = NOW() WHERE reservation_id=$1", [id]);
+    
+    // Liberar el asiento
     await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id=$1", [seatId]);
 
-    // Log de actividad de cancelación
+    // Registrar en auditoría con detalles
     try {
-      await pool.query(
-        `INSERT INTO reservation_activity(user_id, reservation_id, type) VALUES ($1,$2,'cancelled')`,
-        [uid, Number(id)]
-      );
+      await AuditLog.log(uid, Number(id), "cancelled", {
+        reason: reason || "Cancelación de usuario",
+        details: {
+          seat_id: seatId,
+          seat_number: seatNumber,
+          passenger_name: paxName,
+          passenger_cui: paxCui,
+          status_before: reservation.status,
+          price_base: reservation.price_base,
+          total_price: reservation.total_price,
+          cancelled_by: uid,
+        },
+        ipAddress: req.ip || req.connection.remoteAddress || null,
+        userAgent: req.get("user-agent") || null,
+      });
     } catch (logErr) {
-      console.warn('No se pudo registrar actividad de cancelación:', logErr.message);
+      console.warn('No se pudo registrar auditoría de cancelación:', logErr.message);
     }
 
     // Enviar correo (best-effort)
@@ -587,6 +607,7 @@ export const cancelReservation = async (req, res) => {
               <tr><td style="padding:8px 12px;color:#93c5fd">Asiento</td><td style="padding:8px 12px;text-align:right">${seatNumber}</td></tr>
               <tr><td style="padding:8px 12px;color:#93c5fd">Pasajero</td><td style="padding:8px 12px;text-align:right">${paxName || '—'}</td></tr>
               <tr><td style="padding:8px 12px;color:#93c5fd">CUI</td><td style="padding:8px 12px;text-align:right">${paxCui || '—'}</td></tr>
+              ${reason ? `<tr><td style="padding:8px 12px;color:#93c5fd">Motivo</td><td style="padding:8px 12px;text-align:right">${reason}</td></tr>` : ''}
             </tbody>
           </table>
           ${cta}
@@ -599,19 +620,19 @@ export const cancelReservation = async (req, res) => {
       }
     }
 
-    return ok(res, "Reserva cancelada", { reservation_id: Number(id), seat_code: seatNumber });
+    return ok(res, "Reserva cancelada", { reservation_id: Number(id), seat_code: seatNumber, cancelled_at: new Date().toISOString() });
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });
   }
 };
 
-// POST /api/reservations/cancel-by-cui-seat { cui, seat_code }
+// POST /api/reservations/cancel-by-cui-seat { cui, seat_code, reason }
 export const cancelReservationByCUIAndSeat = async (req, res) => {
   try {
     if (!req.user || !req.user.id) throw new HttpError("No autenticado", 401);
     const uid = req.user.id;
-    const { cui, seat_code } = req.body || {};
+    const { cui, seat_code, reason = null } = req.body || {};
     const cleanCui = String(cui || '').replace(/[^0-9]/g, '');
     const code = String(seat_code || '').trim();
     if (!cleanCui || !code) throw new HttpError("Debe proporcionar cui y seat_code.", 400);
@@ -623,22 +644,30 @@ export const cancelReservationByCUIAndSeat = async (req, res) => {
          JOIN passengers p ON p.passenger_id = r.passenger_id
          JOIN seats s ON s.seat_id = r.seat_id
          JOIN users u ON u.user_id = r.user_id
-        WHERE r.user_id=$1 AND p.cui=$2 AND s.seat_number=$3`,
+        WHERE r.user_id=$1 AND p.cui=$2 AND s.seat_number=$3 AND r.deleted_at IS NULL`,
       [uid, cleanCui, code]
     );
     if (!q.rows.length) throw new HttpError("No se encontró una reserva que coincida con el CUI y asiento.", 404);
     const row = q.rows[0];
-    // Eliminar reserva y liberar asiento
-    await pool.query("DELETE FROM reservations WHERE reservation_id=$1", [row.reservation_id]);
+    
+    // SOFT DELETE
+    await pool.query("UPDATE reservations SET deleted_at = NOW() WHERE reservation_id=$1", [row.reservation_id]);
     await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id=$1", [row.seat_id]);
 
+    // Registrar en auditoría
     try {
-      await pool.query(
-        `INSERT INTO reservation_activity(user_id, reservation_id, type) VALUES ($1,$2,'cancelled')`,
-        [uid, row.reservation_id]
-      );
+      await AuditLog.log(uid, row.reservation_id, "cancelled", {
+        reason: reason || "Cancelación por CUI y asiento",
+        details: {
+          lookup_method: "cui_and_seat",
+          seat_number: row.seat_number,
+          passenger_cui: cleanCui,
+        },
+        ipAddress: req.ip || req.connection.remoteAddress || null,
+        userAgent: req.get("user-agent") || null,
+      });
     } catch (logErr) {
-      console.warn('No se pudo registrar actividad de cancelación (CUI+seat):', logErr.message);
+      console.warn('No se pudo registrar auditoría de cancelación (CUI+seat):', logErr.message);
     }
 
     // Enviar correo (best-effort, no bloqueante si falla)
@@ -662,6 +691,7 @@ export const cancelReservationByCUIAndSeat = async (req, res) => {
               <tr><td style="padding:8px 12px;color:#93c5fd">Asiento</td><td style="padding:8px 12px;text-align:right">${row.seat_number}</td></tr>
               <tr><td style="padding:8px 12px;color:#93c5fd">Pasajero</td><td style="padding:8px 12px;text-align:right">${row.full_name}</td></tr>
               <tr><td style="padding:8px 12px;color:#93c5fd">CUI</td><td style="padding:8px 12px;text-align:right">${row.cui}</td></tr>
+              ${reason ? `<tr><td style="padding:8px 12px;color:#93c5fd">Motivo</td><td style="padding:8px 12px;text-align:right">${reason}</td></tr>` : ''}
             </tbody>
           </table>
           ${cta}
@@ -683,39 +713,51 @@ export const cancelReservationByCUIAndSeat = async (req, res) => {
       }
     }
 
-    return ok(res, "Reserva cancelada", { seat_code: code, cui: cleanCui });
+    return ok(res, "Reserva cancelada", { seat_code: code, cui: cleanCui, cancelled_at: new Date().toISOString() });
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });
   }
 };
 
-// POST /api/reservations/cancel-batch { batch_id }
+// POST /api/reservations/cancel-batch { batch_id, reason }
 export const cancelBatchReservations = async (req, res) => {
   try {
     if (!req.user || !req.user.id) throw new HttpError("No autenticado", 401);
     const uid = req.user.id;
-    const { batch_id } = req.body || {};
+    const { batch_id, reason = null } = req.body || {};
     if (!batch_id) throw new HttpError("Debe proporcionar batch_id.", 400);
-    // Obtener reservas del batch del usuario
+    
+    // Obtener reservas del batch del usuario que no están eliminadas
     const q = await pool.query(
       `SELECT r.reservation_id, r.seat_id, s.seat_number, u.email
          FROM reservations r
          JOIN seats s ON s.seat_id=r.seat_id
          JOIN users u ON u.user_id=r.user_id
-        WHERE r.user_id=$1 AND r.batch_id=$2`,
+        WHERE r.user_id=$1 AND r.batch_id=$2 AND r.deleted_at IS NULL`,
       [uid, batch_id]
     );
-    if (!q.rows.length) throw new HttpError("No se encontraron reservas para ese batch.", 404);
+    if (!q.rows.length) throw new HttpError("No se encontraron reservas activas para ese batch.", 404);
+    
     const seatIds = q.rows.map(r => r.seat_id);
     const reservationIds = q.rows.map(r => r.reservation_id);
-    await pool.query("DELETE FROM reservations WHERE reservation_id = ANY($1::int[])", [reservationIds]);
+    
+    // SOFT DELETE: marcar como eliminado en lugar de DELETE
+    await pool.query("UPDATE reservations SET deleted_at = NOW() WHERE reservation_id = ANY($1::int[])", [reservationIds]);
     await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id = ANY($1::int[])", [seatIds]);
 
+    // Registrar cada cancelación en auditoría
     try {
-      const values = reservationIds.map((rid) => `(${uid}, ${Number(rid)}, 'cancelled')`).join(',');
-      if (values) {
-        await pool.query(`INSERT INTO reservation_activity(user_id, reservation_id, type) VALUES ${values}`);
+      for (const rid of reservationIds) {
+        await AuditLog.log(uid, rid, "cancelled", {
+          reason: reason || "Cancelación en lote",
+          details: {
+            batch_id,
+            batch_cancellation: true,
+          },
+          ipAddress: req.ip || req.connection.remoteAddress || null,
+          userAgent: req.get("user-agent") || null,
+        });
       }
     } catch (logErr) {
       console.warn('No se pudo registrar actividad de cancelación (batch):', logErr.message);
@@ -734,6 +776,7 @@ export const cancelBatchReservations = async (req, res) => {
           <h2 style="margin:0 0 8px;color:#fff">Reservas canceladas</h2>
           <p style="margin:0 0 8px">Se han cancelado <strong>${reservationIds.length}</strong> reserva(s).</p>
           <p style="margin:0 0 8px"><strong>Asientos:</strong> ${seatsList}</p>
+          ${reason ? `<p style="margin:0 0 8px"><strong>Motivo:</strong> ${reason}</p>` : ''}
           ${cta}
           <p style="margin:12px 0 0;color:#cbd5e1;font-size:12px">Si no solicitaste estas cancelaciones, contáctanos de inmediato.</p>
         `;
@@ -752,7 +795,7 @@ export const cancelBatchReservations = async (req, res) => {
         console.warn('Fallo al enviar correo batch cancel:', e.message);
       }
     }
-    return ok(res, "Conjunto cancelado", { batch_id, count: reservationIds.length });
+    return ok(res, "Conjunto cancelado", { batch_id, count: reservationIds.length, cancelled_at: new Date().toISOString() });
   } catch (err) {
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });
