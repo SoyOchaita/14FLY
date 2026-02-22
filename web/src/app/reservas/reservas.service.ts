@@ -35,8 +35,9 @@ export class ReservasService {
     return this.http.put<any>(`${this.api}/reservations/${id}`, payload);
   }
 
-  deleteReservation(id: number): Observable<any> {
-    return this.http.delete<any>(`${this.api}/reservations/${id}`);
+  deleteReservation(id: number, reason?: string): Observable<any> {
+    const body = reason ? { reason } : {};
+    return this.http.delete<any>(`${this.api}/reservations/${id}`, { body });
   }
 
   quoteReservation(id: number, params: { seat_id?: number; price_base?: number; has_luggage?: boolean }): Observable<any> {

@@ -1,26 +1,26 @@
-<div *ngIf="open" class="fixed inset-0 z-50 flex items-center justify-center">
+<div *ngIf="open" class="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 overflow-y-auto">
   <div class="absolute inset-0 bg-black/60" (click)="close()"></div>
-  <div class="relative neo-card p-6 w-full max-w-xl">
-    <h3 class="text-xl font-semibold text-white mb-3">Cargar reservas (XML)</h3>
+  <div class="relative neo-card p-4 sm:p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto">
+    <h3 class="text-base sm:text-xl font-semibold text-white mb-3">Cargar reservas (XML)</h3>
 
   <div *ngIf="!summary">
-      <p class="text-softblue mb-3">Selecciona el archivo XML previamente exportado para importar las reservas.</p>
-      <input type="file" accept=".xml,application/xml,text/xml" class="input-neo w-full" (change)="pick($event)" />
-      <div class="flex justify-end gap-3 mt-4">
-        <button class="px-4 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="close()">Cancelar</button>
-        <button class="px-4 py-2 rounded-lg bg-softblue text-dark hover:opacity-90 disabled:opacity-50" [disabled]="!file || uploading" (click)="startUpload()">
+      <p class="text-softblue text-xs sm:text-sm mb-3">Selecciona el archivo XML previamente exportado para importar las reservas.</p>
+      <input type="file" accept=".xml,application/xml,text/xml" class="input-neo w-full text-xs sm:text-sm" (change)="pick($event)" />
+      <div class="flex justify-end gap-2 sm:gap-3 mt-4 flex-wrap">
+        <button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="close()">Cancelar</button>
+        <button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-softblue text-dark hover:opacity-90 disabled:opacity-50" [disabled]="!file || uploading" (click)="startUpload()">
           {{ uploading ? 'Procesando…' : 'Subir e importar' }}
         </button>
       </div>
-      <div class="text-softblue/70 text-sm mt-2">La importación continúa aún si existen errores en algunos asientos.</div>
+      <div class="text-softblue/70 text-xs sm:text-sm mt-2">La importación continúa aún si existen errores en algunos asientos.</div>
     </div>
 
   <ng-container *ngIf="summary">
       <!-- Stepper header -->
-      <div class="flex items-center gap-2 text-sm mb-3">
-        <button class="px-3 py-1 rounded-full" [ngClass]="step===1 ? 'bg-softblue text-dark' : 'bg-white/10 text-softblue'" (click)="gotoStep(1)">1 · Resumen</button>
-  <button class="px-3 py-1 rounded-full" [ngClass]="step===2 ? 'bg-softblue text-dark' : 'bg-white/10 text-softblue'" (click)="gotoStep(2)">2 · Corregir <span *ngIf="(summary.errors||0)>0" class="ml-1 text-xs opacity-80">({{ summary.errors||0 }})</span></button>
-  <button class="px-3 py-1 rounded-full" [ngClass]="step===3 ? 'bg-softblue text-dark' : 'bg-white/10 text-softblue'" (click)="gotoStep(3)">3 · Vista</button>
+      <div class="flex items-center gap-2 text-xs sm:text-sm mb-3 flex-wrap">
+        <button class="px-2 sm:px-3 py-1 rounded-full" [ngClass]="step===1 ? 'bg-softblue text-dark' : 'bg-white/10 text-softblue'" (click)="gotoStep(1)">1 · Resumen</button>
+        <button class="px-2 sm:px-3 py-1 rounded-full" [ngClass]="step===2 ? 'bg-softblue text-dark' : 'bg-white/10 text-softblue'" (click)="gotoStep(2)">2 · Corregir <span *ngIf="(summary.errors||0)>0" class="ml-1 text-[10px] opacity-80">({{ summary.errors||0 }})</span></button>
+        <button class="px-2 sm:px-3 py-1 rounded-full" [ngClass]="step===3 ? 'bg-softblue text-dark' : 'bg-white/10 text-softblue'" (click)="gotoStep(3)">3 · Vista</button>
       </div>
 
       <!-- Paso 1: Resumen -->
@@ -38,17 +38,17 @@
           </div>
         </div>
         <div class="text-softblue/70 text-xs mt-2">Las correcciones que reintentes y resulten exitosas se guardan inmediatamente.</div>
-        <div class="flex justify-end gap-3 mt-5">
-          <button class="px-4 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="close()">Salir</button>
-          <button class="px-4 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="nextStep()">Continuar</button>
+        <div class="flex justify-end gap-2 sm:gap-3 mt-5 flex-wrap">
+          <button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="close()">Salir</button>
+          <button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-softblue text-dark hover:opacity-90" (click)="nextStep()">Continuar</button>
         </div>
       </div>
 
       <!-- Paso 2: Corregir -->
       <div *ngIf="step===2">
   <div *ngIf="(summary.errorItems||[]).length; else noErrorsTpl" class="space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="text-softblue">Error {{ currentErrorIndex+1 }} de {{ (summary.errorItems||[]).length }}</div>
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="text-softblue text-xs sm:text-sm">Error {{ currentErrorIndex+1 }} de {{ (summary.errorItems||[]).length }}</div>
             <div class="flex gap-2">
               <button class="px-2 py-1 rounded bg-white/10 text-softblue hover:bg-white/20 text-xs" (click)="prevError()">Anterior</button>
               <button class="px-2 py-1 rounded bg-white/10 text-softblue hover:bg-white/20 text-xs" (click)="nextError()">Siguiente</button>
@@ -78,31 +78,31 @@
                 <div class="text-white font-mono">{{ currentError?.idNumber || currentError?.cui || '—' }}</div>
               </div>
             </div>
-            <div class="flex items-center justify-between mt-4">
+            <div class="flex items-center justify-between mt-4 flex-wrap gap-2">
               <div class="text-softblue/70 text-xs h-5" *ngIf="retryAllProgress">Reintentando {{ retryAllProgress.done }} / {{ retryAllProgress.total }}…</div>
-              <div class="flex gap-2 ml-auto">
-                <button class="px-3 py-2 rounded bg-white/10 text-softblue hover:bg-white/20 text-sm" (click)="nextError()">Omitir y siguiente</button>
-                <button class="px-3 py-2 rounded bg-softblue text-dark hover:opacity-90 text-sm disabled:opacity-50" [disabled]="retrying[currentErrorIndex]" (click)="retryOne(currentErrorIndex, currentError)">{{ retrying[currentErrorIndex] ? 'Reintentando…' : 'Reintentar' }}</button>
+              <div class="flex gap-2 ml-auto flex-wrap">
+                <button class="px-3 py-2 rounded bg-white/10 text-softblue hover:bg-white/20 text-xs sm:text-sm" (click)="nextError()">Omitir y siguiente</button>
+                <button class="px-3 py-2 rounded bg-softblue text-dark hover:opacity-90 text-xs sm:text-sm disabled:opacity-50" [disabled]="retrying[currentErrorIndex]" (click)="retryOne(currentErrorIndex, currentError)">{{ retrying[currentErrorIndex] ? 'Reintentando…' : 'Reintentar' }}</button>
               </div>
             </div>
           </div>
-          <div class="flex items-center justify-between">
-            <button class="px-3 py-2 rounded bg-white/10 text-softblue hover:bg-white/20 text-sm" (click)="prevStep()">Volver</button>
-            <div class="flex gap-2">
-        <button class="px-3 py-2 rounded bg-white/10 text-softblue hover:bg-white/20 text-sm disabled:opacity-50"
-          [disabled]="(summary.errorItems||[]).length===0 || retryAllProgress"
-          (click)="retryAll()">Reintentar todos ({{ (summary.errorItems||[]).length }})</button>
-              <button class="px-3 py-2 rounded bg-white/10 text-softblue hover:bg-white/20 text-sm disabled:opacity-50"
-                      [disabled]="!editRow || !(editRow | keyvalue).length || retryAllProgress"
-                      (click)="retryAllEdited()">Reintentar editados ({{ (editRow | keyvalue).length }})</button>
-              <button class="px-3 py-2 rounded bg-softblue text-dark hover:opacity-90 text-sm" (click)="nextStep()">Ir a vista</button>
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <button class="px-3 py-2 rounded bg-white/10 text-softblue hover:bg-white/20 text-xs sm:text-sm" (click)="prevStep()">Volver</button>
+            <div class="flex gap-2 flex-wrap">
+              <button class="px-3 py-2 rounded bg-white/10 text-softblue hover:bg-white/20 text-xs sm:text-sm disabled:opacity-50"
+                [disabled]="(summary.errorItems||[]).length===0 || retryAllProgress"
+                (click)="retryAll()">Reintentar todos ({{ (summary.errorItems||[]).length }})</button>
+              <button class="px-3 py-2 rounded bg-white/10 text-softblue hover:bg-white/20 text-xs sm:text-sm disabled:opacity-50"
+                [disabled]="!editRow || !(editRow | keyvalue).length || retryAllProgress"
+                (click)="retryAllEdited()">Reintentar editados ({{ (editRow | keyvalue).length }})</button>
+              <button class="px-3 py-2 rounded bg-softblue text-dark hover:opacity-90 text-xs sm:text-sm" (click)="nextStep()">Ir a vista</button>
             </div>
           </div>
         </div>
         <ng-template #noErrorsTpl>
           <div class="p-4 rounded bg-white/5 border border-white/10 text-softblue">No quedan errores por corregir.</div>
-          <div class="flex justify-end gap-3 mt-4">
-            <button class="px-4 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="gotoStep(3)">Ir a vista</button>
+          <div class="flex justify-end gap-2 sm:gap-3 mt-4 flex-wrap">
+            <button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-softblue text-dark hover:opacity-90" (click)="gotoStep(3)">Ir a vista</button>
           </div>
         </ng-template>
       </div>
@@ -133,9 +133,9 @@
             </div>
           </div>
         </div>
-        <div class="flex justify-end gap-3 mt-5">
-          <button class="px-4 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="prevStep()">Volver</button>
-          <button class="px-4 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="viewDiagram.emit()">Mapa completo</button>
+        <div class="flex justify-end gap-2 sm:gap-3 mt-5 flex-wrap">
+          <button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="prevStep()">Volver</button>
+          <button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-softblue text-dark hover:opacity-90" (click)="viewDiagram.emit()">Mapa completo</button>
         </div>
       </div>
   </ng-container>

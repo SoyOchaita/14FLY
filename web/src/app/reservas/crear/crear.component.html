@@ -1,49 +1,55 @@
-<section class="p-6">
-	<h2 class="text-2xl font-semibold text-white mb-4">Reservar Asientos</h2>
+<section class="p-4 sm:p-6">
+	<h2 class="text-xl sm:text-2xl font-semibold text-white mb-4">Reservar Asientos</h2>
 
 	<!-- Selección básica -->
-		<div class="neo-card p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-start md:items-center">
+		<div class="neo-card p-4 mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 items-start lg:items-center">
 			<!-- Selector de clase con segmento de botones -->
-			<div class="inline-flex bg-white/5 rounded-xl p-1 border border-white/10">
+			<div class="inline-flex bg-white/5 rounded-xl p-1 border border-white/10 w-full sm:w-auto">
 				<button type="button"
-					[class]="'px-4 py-2 rounded-lg text-sm font-medium transition ' + (tipo==='business' ? 'bg-softblue text-dark shadow' : 'text-softblue hover:bg-white/10')"
+					[class]="'flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center justify-center gap-1 ' + (tipo==='business' ? 'bg-softblue text-dark shadow' : 'text-softblue hover:bg-white/10')"
 					(click)="setTipo('business')">
-					<span class="mr-1">🏢</span> Negocios
+					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 sm:w-5 sm:h-5">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+					</svg>
+					<span class="hidden xs:inline">Negocios</span>
 				</button>
 				<button type="button"
-					[class]="'ml-1 px-4 py-2 rounded-lg text-sm font-medium transition ' + (tipo==='economy' ? 'bg-softblue text-dark shadow' : 'text-softblue hover:bg-white/10')"
+					[class]="'flex-1 sm:flex-none ml-1 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center justify-center gap-1 ' + (tipo==='economy' ? 'bg-softblue text-dark shadow' : 'text-softblue hover:bg-white/10')"
 					(click)="setTipo('economy')">
-					<span class="mr-1">💺</span> Económica
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 sm:w-5 sm:h-5">
+						<path d="M8.25 4.5a3.75 3.75 0 117.5 0v.006h.006a.75.75 0 01.75.75v.006c0 .414-.168.789-.432 1.068a.75.75 0 01-.006.006 24.585 24.585 0 01-16.668 0l-.006-.006A1.125 1.125 0 001.5 5.256v-.006a.75.75 0 01.75-.75h.006V4.5zm0 6.75a.75.75 0 00-.75.75v6a.75.75 0 001.5 0v-6a.75.75 0 00-.75-.75zm12 0a.75.75 0 00-.75.75v6a.75.75 0 001.5 0v-6a.75.75 0 00-.75-.75zm-6-3a.75.75 0 00-.75.75v9a.75.75 0 001.5 0v-9a.75.75 0 00-.75-.75zm6 3a.75.75 0 00-.75.75v6a.75.75 0 001.5 0v-6a.75.75 0 00-.75-.75z" />
+					</svg>
+					<span class="hidden xs:inline">Económica</span>
 				</button>
 			</div>
-			<input type="number" [(ngModel)]="cantidad" (ngModelChange)="onCantidadChange($event)" name="cantidad" min="1" [attr.max]="availableInClass()" class="input-neo !w-28 bg-dark/40 text-white border-white/10" placeholder="Cantidad" />
-			<div class="flex gap-3 items-center col-span-2 md:col-span-1">
-				<button type="button" (click)="cargarMapa(true)" [disabled]="loading" class="btn-accent">Actualizar mapa</button>
-				<button type="button" (click)="seleccionarAleatorio()" [disabled]="loading || availableInClass()===0" class="px-4 py-3 rounded-xl bg-softblue text-dark hover:opacity-90">Aleatorio</button>
+			<input type="number" [(ngModel)]="cantidad" (ngModelChange)="onCantidadChange($event)" name="cantidad" min="1" [attr.max]="availableInClass()" class="input-neo w-full sm:w-24 bg-dark/40 text-white border-white/10 text-xs sm:text-sm" placeholder="Cant." />
+			<div class="flex gap-2 items-center col-span-1 sm:col-span-1 lg:col-span-2 flex-wrap">
+				<button type="button" (click)="cargarMapa(true)" [disabled]="loading" class="btn-accent text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-3">Actualizar</button>
+				<button type="button" (click)="seleccionarAleatorio()" [disabled]="loading || availableInClass()===0" class="px-3 sm:px-4 py-2 sm:py-3 rounded-xl bg-softblue text-dark hover:opacity-90 text-xs sm:text-sm">Aleatorio</button>
 			</div>
 
-      <div class="text-red-400 text-sm md:col-span-5" *ngIf="capExceeded">
-        No puedes seleccionar más de {{ availableInClass() }} asiento(s) disponibles en esta clase.
-      </div>
+		<div class="text-red-400 text-xs sm:text-sm col-span-1 sm:col-span-2 lg:col-span-4" *ngIf="capExceeded">
+			No puedes seleccionar más de {{ availableInClass() }} asiento(s) disponibles en esta clase.
+		</div>
 	</div>
 
-	<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-			<div class="neo-card p-6">
-				<div class="flex items-center justify-between mb-4">
-					<h3 class="text-xl font-semibold text-white">Mapa de asientos</h3>
-					<div class="text-softblue/80 text-sm">Disponibles en {{ tipo==='business' ? 'Negocios' : 'Económica' }}: <span class="text-white font-semibold">{{ availableInClass() }}</span></div>
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+			<div class="neo-card p-4 sm:p-6 overflow-x-auto">
+				<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+					<h3 class="text-lg sm:text-xl font-semibold text-white">Mapa de asientos</h3>
+					<div class="text-softblue/80 text-xs sm:text-sm">Disponibles: <span class="text-white font-semibold">{{ availableInClass() }}</span></div>
 				</div>
 				<!-- Diagrama de asientos con orden y rotulación por filas/columnas -->
-				<div class="space-y-3">
+				<div class="space-y-3 min-w-96">
 					<!-- Encabezado de columnas -->
 					<div class="flex items-center gap-2 pl-6">
 						<div class="w-5"></div>
-						<div *ngFor="let c of colOrder" class="w-12 text-center text-softblue font-mono">{{ c }}</div>
+						<div *ngFor="let c of colOrder" class="w-10 sm:w-12 text-center text-softblue font-mono text-xs sm:text-sm">{{ c }}</div>
 					</div>
 					<!-- Grupos de filas -->
-					<div *ngFor="let group of rowGroups; let gi = index" [class.mt-4]="gi>0" class="space-y-2">
-						<div *ngFor="let r of group" class="flex items-center gap-2">
-							<div class="w-5 text-softblue">{{ r }}</div>
+				<div *ngFor="let group of rowGroups; let gi = index" [class.mt-3]="gi>0" class="space-y-1">
+					<div *ngFor="let r of group" class="flex items-center gap-2">
+						<div class="w-5 text-softblue text-xs sm:text-sm">{{ r }}</div>
 							<ng-container *ngFor="let c of colOrder">
 								<ng-container *ngIf="getSeat(r, c) as seat; else emptyCell">
 																		<div (click)="toggleSeleccion(seat)"
@@ -51,45 +57,47 @@
 																					 'bg-red-500': !seat.available,
 																					 'bg-yellow-400': seat.available && isSelected(seat.code),
 																					 'bg-green-400': seat.available && !isSelected(seat.code),
-																					 'ring-4 ring-accent': isHighlighted(seat.code)
+																					 'ring-2 ring-accent': isHighlighted(seat.code)
 																				 }"
-																				 class="w-12 h-12 rounded-lg text-center text-white font-semibold cursor-pointer transition-all hover:scale-105 select-none flex items-center justify-center font-mono">
-										{{ seat.code }}
+																				 class="w-8 sm:w-12 h-8 sm:h-12 rounded-lg text-center text-white font-semibold cursor-pointer transition-all hover:scale-105 select-none flex items-center justify-center font-mono text-xs sm:text-sm">
+																				{{ seat.code }}
 									</div>
 								</ng-container>
 								<ng-template #emptyCell>
-									<div class="w-12 h-12 rounded-lg opacity-30 border border-white/10"></div>
+									<div class="w-8 sm:w-12 h-8 sm:h-12 rounded-lg opacity-30 border border-white/10"></div>
 								</ng-template>
 							</ng-container>
 						</div>
 					</div>
 				</div>
-				<p class="text-softblue/80 text-sm mt-3">Verde: disponible · Amarillo: seleccionado · Rojo: ocupado</p>
+				<p class="text-softblue/80 text-xs mt-3">Verde: disponible · Amarillo: seleccionado · Rojo: ocupado</p>
 			</div>
 
-		<div class="neo-card p-6">
-			<h3 class="text-xl font-semibold text-white mb-4">Datos por asiento</h3>
-			<div *ngIf="seleccionados.length === 0" class="text-softblue">Selecciona asientos en el mapa y completa los datos aquí.</div>
+		<div class="neo-card p-4 sm:p-6">
+			<h3 class="text-lg sm:text-xl font-semibold text-white mb-4">Datos por asiento</h3>
+			<div *ngIf="seleccionados.length === 0" class="text-softblue text-xs sm:text-sm">Selecciona asientos en el mapa y completa los datos aquí.</div>
 			<div *ngIf="seleccionados.length > 0" class="space-y-4">
 				<!-- Lista de asientos como chips navegables -->
 				<div class="flex gap-2 overflow-x-auto pb-2">
 					<button type="button" *ngFor="let s of seleccionados; let i = index"
 						(click)="setActiveSeat(i)"
-						[class]="'whitespace-nowrap px-3 py-2 rounded-full text-sm border transition ' + (i===activeSeatIndex ? 'bg-softblue text-dark border-softblue' : 'bg-white/5 text-softblue border-white/10 hover:bg-white/10')">
-						<span class="font-mono mr-1">{{ s.code }}</span>
-						<span *ngIf="passengerIsValid(s)" class="text-emerald-400">✔</span>
-						<span *ngIf="!passengerIsValid(s)" class="text-red-400">•</span>
+						[class]="'whitespace-nowrap px-3 py-2 rounded-full text-xs sm:text-sm border transition flex items-center gap-1 ' + (i===activeSeatIndex ? 'bg-softblue text-dark border-softblue' : 'bg-white/5 text-softblue border-white/10 hover:bg-white/10')">
+						<span class="font-mono">{{ s.code }}</span>
+						<svg *ngIf="passengerIsValid(s)" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-emerald-400">
+							<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+						</svg>
+						<span *ngIf="!passengerIsValid(s)" class="text-red-400 font-bold">•</span>
 					</button>
 				</div>
 
 				<!-- Panel de edición para el asiento activo -->
-				<div class="p-4 rounded-lg bg-dark/30">
-					<div class="flex items-center justify-between mb-3">
-						<div class="text-softblue">Asiento <span class="text-white font-semibold">{{ activeSeat.code }}</span></div>
+				<div class="p-4 rounded-lg bg-dark/30 text-sm">
+					<div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+						<div class="text-softblue text-xs sm:text-sm">Asiento <span class="text-white font-semibold">{{ activeSeat.code }}</span></div>
 						<div class="text-xs text-softblue/70">{{ activeSeatIndex + 1 }} de {{ seleccionados.length }}</div>
 					</div>
 		      <input placeholder="Nombre completo"
-			      class="input-neo w-full mb-2"
+			      class="input-neo w-full mb-2 text-xs sm:text-sm"
 			      #fullNameCtrl="ngModel"
 			      [ngClass]="{
 				 'border-red-500 focus:ring-red-500': (fullNameCtrl.dirty || fullNameCtrl.touched) && !fullNameIsValid(activeSeat.full_name),
@@ -97,7 +105,7 @@
 			      }"
 			      [(ngModel)]="activeSeat.full_name" name="full_name_{{activeSeatIndex}}" />
 		      <input placeholder="CUI (13 dígitos)" inputmode="numeric"
-			      class="input-neo w-full mb-2"
+			      class="input-neo w-full mb-2 text-xs sm:text-sm"
 			      #cuiCtrl="ngModel"
 			      [ngClass]="{
 				 'border-red-500 focus:ring-red-500': (cuiCtrl.dirty || cuiCtrl.touched) && !cuiIsValid(activeSeat.cui),
@@ -108,80 +116,78 @@
 												<div *ngIf="(fullNameCtrl?.dirty || fullNameCtrl?.touched) && !fullNameIsValid(activeSeat.full_name)">Nombre: solo letras y espacios (mín. 3).</div>
 												<div *ngIf="(cuiCtrl?.dirty || cuiCtrl?.touched) && !cuiIsValid(activeSeat.cui)">CUI: 13 dígitos.</div>
 								</div>
-					<label class="inline-flex items-center gap-2 text-softblue">
+					<label class="inline-flex items-center gap-2 text-softblue text-xs sm:text-sm">
 						<input type="checkbox" [(ngModel)]="activeSeat.has_bag" name="bag_{{activeSeatIndex}}" />
 						¿Incluye maleta?
 					</label>
-					<div class="flex justify-between mt-4">
-						<button type="button" class="px-3 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="setActiveSeatPrev()" [disabled]="activeSeatIndex===0">Anterior</button>
-						<button type="button" class="px-3 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="setActiveSeatNext()" [disabled]="activeSeatIndex===seleccionados.length-1">Siguiente</button>
+					<div class="flex justify-between gap-2 mt-4">
+						<button type="button" class="flex-1 px-2 sm:px-3 py-2 text-xs sm:text-sm rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="setActiveSeatPrev()" [disabled]="activeSeatIndex===0">Anterior</button>
+						<button type="button" class="flex-1 px-2 sm:px-3 py-2 text-xs sm:text-sm rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="setActiveSeatNext()" [disabled]="activeSeatIndex===seleccionados.length-1">Siguiente</button>
 					</div>
 					<p class="mt-2 text-xs text-softblue/70">Para cambiar el asiento, usa el mapa.</p>
 				</div>
 			</div>
 
-			<button type="button" (click)="reservar()" [disabled]="!canConfirm || loading" class="mt-6 btn-accent w-full">{{ loading ? 'Procesando…' : 'Confirmar Reserva' }}</button>
+			<button type="button" (click)="reservar()" [disabled]="!canConfirm || loading" class="mt-6 btn-accent w-full text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-3">{{ loading ? 'Procesando…' : 'Confirmar Reserva' }}</button>
 		</div>
 	</div>
 </section>
 
 <!-- Modal selección aleatoria -->
-<div *ngIf="showRandomModal" class="fixed inset-0 z-50 flex items-center justify-center">
+<div *ngIf="showRandomModal" class="fixed inset-0 z-50 flex items-center justify-center px-4">
 	<div class="absolute inset-0 bg-black/60" (click)="closeRandomModal()"></div>
-	<div class="relative neo-card p-6 w-full max-w-sm">
-			<h4 class="text-lg font-semibold text-white mb-3">Seleccionar asientos aleatorios</h4>
-			<div class="flex items-center justify-between mb-2 text-softblue">
+	<div class="relative neo-card p-4 sm:p-6 w-full max-w-sm">
+			<h4 class="text-base sm:text-lg font-semibold text-white mb-3">Seleccionar asientos aleatorios</h4>
+			<div class="flex items-center justify-between gap-2 mb-2 text-softblue text-xs sm:text-sm flex-wrap">
 				<p>Clase: <span class="text-white">{{ tipo==='business' ? 'Negocios' : 'Económica' }}</span></p>
 				<p>Disponibles: <span class="text-white font-semibold">{{ availableInClass() }}</span></p>
 			</div>
-			<div class="flex items-center gap-3 mb-4">
-				<button class="px-3 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="modalDecrement()">-</button>
-				<input type="number" [(ngModel)]="modalQuantity" (ngModelChange)="onModalQtyChange($event)" name="modalQty" min="1" [attr.max]="availableInClass()" class="input-neo w-24 text-center bg-dark/40 text-white border-white/10" />
-				<button class="px-3 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="modalIncrement()">+</button>
-				<button class="ml-auto px-3 py-2 rounded-lg bg-softblue/20 text-softblue hover:bg-softblue/30" (click)="modalSetMax()">Usar máximo</button>
+			<div class="flex items-center gap-2 mb-4 flex-wrap">
+				<button class="px-2 sm:px-3 py-2 text-xs sm:text-sm rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="modalDecrement()">-</button>
+				<input type="number" [(ngModel)]="modalQuantity" (ngModelChange)="onModalQtyChange($event)" name="modalQty" min="1" [attr.max]="availableInClass()" class="input-neo w-20 sm:w-24 text-center bg-dark/40 text-white border-white/10 text-xs sm:text-sm" />
+				<button class="px-2 sm:px-3 py-2 text-xs sm:text-sm rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="modalIncrement()">+</button>
+				<button class="px-2 sm:px-3 py-2 text-xs sm:text-sm rounded-lg bg-softblue/20 text-softblue hover:bg-softblue/30 whitespace-nowrap" (click)="modalSetMax()">Máximo</button>
 			</div>
-			<div class="text-red-400 text-sm mb-2" *ngIf="modalExceeded">
+			<div class="text-red-400 text-xs sm:text-sm mb-2" *ngIf="modalExceeded">
 				No puedes seleccionar más de {{ availableInClass() }} asiento(s) disponibles en esta clase.
 			</div>
-			<div class="flex justify-end gap-3">
-			<button class="px-4 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="closeRandomModal()">Cancelar</button>
-			<button class="px-4 py-2 rounded-lg bg-softblue text-dark hover:opacity-90 disabled:opacity-50" [disabled]="modalExceeded || availableInClass()===0" (click)="confirmRandomModal()">Confirmar</button>
+			<div class="flex justify-end gap-2 sm:gap-3">
+			<button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="closeRandomModal()">Cancelar</button>
+			<button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-softblue text-dark hover:opacity-90 disabled:opacity-50" [disabled]="modalExceeded || availableInClass()===0" (click)="confirmRandomModal()">Confirmar</button>
 		</div>
 	</div>
 	</div>
 
 <!-- Modal de confirmación de reserva -->
-<div *ngIf="showConfirmModal" class="fixed inset-0 z-50 flex items-center justify-center">
+<div *ngIf="showConfirmModal" class="fixed inset-0 z-50 flex items-center justify-center px-4">
 	<div class="absolute inset-0 bg-black/60" (click)="closeConfirmModal()"></div>
-	<div class="relative neo-card p-6 w-full max-w-lg">
-		<h4 class="text-lg font-semibold text-white mb-3">Reserva completada</h4>
-		<p class="text-softblue mb-1">Se registró {{ confirmList.length }} asiento(s):</p>
+	<div class="relative neo-card p-4 sm:p-6 w-full max-w-lg">
+		<h4 class="text-base sm:text-lg font-semibold text-white mb-3">Reserva completada</h4>
+		<p class="text-softblue text-xs sm:text-sm mb-1">Se registró {{ confirmList.length }} asiento(s):</p>
 		<p class="text-softblue/70 text-xs mb-3">Te enviamos un correo con el detalle de tu(s) reserva(s).</p>
-		<div *ngIf="confirmHasVip" class="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 text-sm">
-			🎉 Gracias por ser cliente VIP: aplicamos un 10% de descuento a tu(s) reserva(s).
-			<div class="mt-1 text-emerald-200/80">
-				Beneficio VIP: se activa automáticamente al acumular 5 reservas o más en tu cuenta.
-			</div>
+		<div *ngIf="confirmHasVip" class="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 text-xs sm:text-sm">
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 inline mr-1"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09l-.813 2.846zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L13.5 5.25l.75-1.285L15 3.75l1.035.259a3.375 3.375 0 012.456 2.456L18.75 6.75l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 11.25l-.75 1.285-1.035-.259a3.375 3.375 0 00-2.456-2.456zM9.556 7.5H9.75a2.25 2.25 0 010 4.5H9.556c.372-1.038 1.218-1.884 2.256-2.256" /></svg> Gracias por ser cliente VIP: aplicamos un 10% de descuento a tu(s) reserva(s).
+			<div class="mt-1 text-emerald-200/80 text-xs">Beneficio VIP: se activa automáticamente al acumular 5 reservas o más en tu cuenta.</div>
 		</div>
 		<ul class="space-y-2 max-h-64 overflow-auto">
-			<li *ngFor="let r of confirmList" class="flex items-center justify-between bg-white/5 rounded-lg p-3 border border-white/10">
-				<div>
-					<div class="text-white font-semibold">Asiento {{ r.seat_code }}</div>
-					<div class="text-softblue/80 text-sm">{{ formatDateTime(r.created_at) }}</div>
+			<li *ngFor="let r of confirmList" class="flex items-center justify-between gap-3 bg-white/5 rounded-lg p-2 sm:p-3 border border-white/10 flex-wrap">
+				<div class="flex-1 min-w-0">
+					<div class="text-white font-semibold text-xs sm:text-sm">Asiento {{ r.seat_code }}</div>
+					<div class="text-softblue/80 text-xs">{{ formatDateTime(r.created_at) }}</div>
 					<div *ngIf="(r.discount||0) > 0" class="mt-1 inline-flex items-center gap-2 text-xs text-emerald-300">
 						<span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-400/30">VIP -10%</span>
 						<span>-Q {{ r.discount | number:'1.0-0' }}</span>
 					</div>
 				</div>
-				<div class="flex items-center gap-3">
-					<div class="text-emerald-400 font-semibold" *ngIf="r.total as t">Q {{ t | number:'1.0-0' }}</div>
-					<button class="px-3 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="goToModificar(r.reservation_id)">Modificar</button>
+				<div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+					<div class="text-emerald-400 font-semibold text-xs sm:text-sm whitespace-nowrap" *ngIf="r.total as t">Q {{ t | number:'1.0-0' }}</div>
+					<button class="px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm rounded-lg bg-softblue text-dark hover:opacity-90 whitespace-nowrap" (click)="goToModificar(r.reservation_id)">Modificar</button>
 				</div>
 			</li>
 		</ul>
-		<div class="flex justify-end gap-3 mt-4">
-			<button class="px-4 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="closeConfirmModal()">Cerrar</button>
-			<button class="px-4 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="goToMisReservas()">Ver mis reservas</button>
+		<div class="flex justify-end gap-2 sm:gap-3 mt-4 flex-wrap">
+			<button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="closeConfirmModal()">Cerrar</button>
+			<button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-softblue text-dark hover:opacity-90" (click)="goToMisReservas()">Ver mis reservas</button>
 		</div>
 	</div>
 </div>
@@ -189,14 +195,14 @@
 <!-- Modal edición inline desde confirmación -->
 <app-edit-reserva-modal *ngIf="showInlineEdit && inlineEditReserva" [reservation]="inlineEditReserva" (closed)="onInlineEditClosed()" (updated)="onInlineEditUpdated($event)"></app-edit-reserva-modal>
 <!-- Modal paso a paso: continuar con siguientes -->
-<div *ngIf="showStepModal" class="fixed inset-0 z-50 flex items-center justify-center">
+<div *ngIf="showStepModal" class="fixed inset-0 z-50 flex items-center justify-center px-4">
 	<div class="absolute inset-0 bg-black/60" (click)="stopStepFlow()"></div>
-	<div class="relative neo-card p-6 w-full max-w-md">
-		<h4 class="text-lg font-semibold text-white mb-3">Asiento reservado</h4>
-		<div class="bg-white/5 rounded-lg p-3 border border-white/10 mb-3" *ngIf="stepLast as r">
+	<div class="relative neo-card p-4 sm:p-6 w-full max-w-md">
+		<h4 class="text-base sm:text-lg font-semibold text-white mb-3">Asiento reservado</h4>
+		<div class="bg-white/5 rounded-lg p-3 border border-white/10 mb-3 text-xs sm:text-sm" *ngIf="stepLast as r">
 			<div class="text-white font-semibold">Asiento {{ r.seat_code }}</div>
-			<div class="text-softblue/80 text-sm">{{ formatDateTime(r.created_at) }}</div>
-			<div class="flex items-center justify-between mt-1">
+			<div class="text-softblue/80 text-xs">{{ formatDateTime(r.created_at) }}</div>
+			<div class="flex items-center justify-between mt-1 flex-wrap gap-1">
 				<div *ngIf="(r.discount||0) > 0" class="inline-flex items-center gap-2 text-xs text-emerald-300">
 					<span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-400/30">VIP -10%</span>
 					<span>-Q {{ r.discount | number:'1.0-0' }}</span>
@@ -204,10 +210,10 @@
 				<div class="text-emerald-400 font-semibold" *ngIf="r.total as t">Q {{ t | number:'1.0-0' }}</div>
 			</div>
 		</div>
-		<p class="text-softblue mb-4" *ngIf="stepRemaining>0">Quedan {{ stepRemaining }} asiento(s) por reservar. ¿Deseas continuar?</p>
-		<div class="flex justify-end gap-3">
-			<button class="px-4 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="stopStepFlow()">Detener aquí</button>
-			<button class="px-4 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" *ngIf="stepRemaining>0" (click)="continueStepFlow()">Continuar</button>
+		<p class="text-softblue text-xs sm:text-sm mb-4" *ngIf="stepRemaining>0">Quedan {{ stepRemaining }} asiento(s) por reservar. ¿Deseas continuar?</p>
+		<div class="flex justify-end gap-2 sm:gap-3 flex-wrap">
+			<button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="stopStepFlow()">Detener aquí</button>
+			<button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-softblue text-dark hover:opacity-90" *ngIf="stepRemaining>0" (click)="continueStepFlow()">Continuar</button>
 		</div>
 	</div>
 </div>

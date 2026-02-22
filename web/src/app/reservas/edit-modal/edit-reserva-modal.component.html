@@ -1,7 +1,7 @@
-<div class="fixed inset-0 z-[60] flex items-center justify-center">
+<div class="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6 overflow-y-auto">
   <div class="absolute inset-0 bg-black/60" (click)="close()"></div>
-  <div class="relative neo-card p-6 w-full max-w-3xl">
-    <h4 class="text-lg font-semibold text-white mb-3">Modificar reserva</h4>
+  <div class="relative neo-card p-4 sm:p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+    <h4 class="text-base sm:text-lg font-semibold text-white mb-3">Modificar reserva</h4>
     <div *ngIf="editError" class="mb-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{{ editError }}</div>
 
     <div class="text-softblue mb-2">Actual: <span class="text-white font-semibold">{{ editModel?.seat_code }}</span>
@@ -14,14 +14,14 @@
           <div class="text-white font-medium">Mapa de asientos ({{ currentClassLabel }})</div>
           <div class="text-softblue/70 text-xs">Solo se puede cambiar dentro de esta clase</div>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-2 overflow-x-auto">
           <div class="flex items-center gap-2 pl-6">
             <div class="w-5"></div>
-            <div *ngFor="let c of colOrder" class="w-10 text-center text-softblue font-mono">{{ c }}</div>
+            <div *ngFor="let c of colOrder" class="w-8 sm:w-10 text-center text-softblue font-mono text-xs sm:text-sm">{{ c }}</div>
           </div>
           <div *ngFor="let group of rowGroups; let gi = index" [class.mt-2]="gi>0" class="space-y-1">
             <div *ngFor="let r of group" class="flex items-center gap-2">
-              <div class="w-5 text-softblue">{{ r }}</div>
+              <div class="w-5 text-softblue text-xs sm:text-sm">{{ r }}</div>
               <ng-container *ngFor="let c of colOrder">
                 <ng-container *ngIf="getSeat(r, c) as seat; else emptyCell">
                   <div (click)="onSelectSeat(seat.code)"
@@ -31,13 +31,13 @@
                          'bg-yellow-400': seat.code !== editModel?.seat_code && seat.available && isChosen(seat.code),
                          'bg-green-400': seat.code !== editModel?.seat_code && seat.available && !isChosen(seat.code)
                        }"
-                       class="relative w-10 h-10 rounded-lg text-center text-white font-semibold cursor-pointer transition-all hover:scale-105 select-none flex items-center justify-center font-mono">
+                       class="relative w-8 sm:w-10 h-8 sm:h-10 rounded-lg text-center text-white font-semibold cursor-pointer transition-all hover:scale-105 select-none flex items-center justify-center font-mono text-xs sm:text-sm">
                     {{ seat.code }}
                     <span *ngIf="seat.code === editModel?.seat_code" class="absolute -top-1 -right-1 text-[10px] px-1 rounded bg-white/90 text-blue-700 font-bold">ACTUAL</span>
                   </div>
                 </ng-container>
                 <ng-template #emptyCell>
-                  <div class="w-10 h-10 rounded-lg opacity-30 border border-white/10"></div>
+                  <div class="w-8 sm:w-10 h-8 sm:h-10 rounded-lg opacity-30 border border-white/10"></div>
                 </ng-template>
               </ng-container>
             </div>
@@ -71,9 +71,9 @@
       </div>
     </div>
 
-    <div class="flex justify-end gap-3">
-      <button class="px-4 py-2 rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="close()">Cancelar</button>
-      <button class="px-4 py-2 rounded-lg bg-softblue text-dark hover:opacity-90" (click)="save()">Guardar cambios</button>
+    <div class="flex justify-end gap-2 sm:gap-3 flex-wrap">
+      <button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-white/10 text-softblue hover:bg-white/20" (click)="close()">Cancelar</button>
+      <button class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-softblue text-dark hover:opacity-90" (click)="save()">Guardar cambios</button>
     </div>
   </div>
 </div>

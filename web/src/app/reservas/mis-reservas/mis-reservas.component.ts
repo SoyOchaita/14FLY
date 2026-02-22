@@ -284,15 +284,24 @@ export class MisReservasComponent implements OnInit {
     this.isCancelling = true;
     this.api.deleteReservation(this.cancelTarget.reservation_id).subscribe({
       next: () => {
-        this.toast.success('Reserva cancelada');
+        this.isCancelling = false;
+        this.toast.success('Reserva cancelada correctamente');
         this.closeCancel();
         this.api.getMyReservations().subscribe({
-          next: (res) => { this.reservas = res.data || []; this.buildGroups(); }
+          next: (res) => { 
+            this.reservas = res.data || []; 
+            this.buildGroups(); 
+          },
+          error: (err) => {
+            this.toast.error('Error al recargar reservas');
+            console.error('Error al recargar:', err);
+          }
         });
       },
       error: (err) => {
-        this.toast.error(err?.error?.message || 'Error al cancelar');
         this.isCancelling = false;
+        this.toast.error(err?.error?.message || 'Error al cancelar reserva');
+        console.error('Error cancelación:', err);
       }
     });
   }
@@ -300,6 +309,11 @@ export class MisReservasComponent implements OnInit {
   // Cancelación por conjunto
   openCancelBatch(group: { batch_id: string; items: any[] }) {
     if (!group?.batch_id) return;
+    // Prevenir apertura de modal si el grupo está vacío (edge case de race conditions)
+    if (!group.items || group.items.length === 0) {
+      this.toast.error('Este conjunto ya no tiene reservas activas.');
+      return;
+    }
     this.cancelBatchTarget = { batch_id: group.batch_id, items: group.items || [] };
     this.confirmPhrase = '';
     this.showCancelBatchModal = true;
@@ -316,15 +330,42 @@ export class MisReservasComponent implements OnInit {
       return;
     }
     const bid = this.cancelBatchTarget.batch_id;
+    const batchSize = this.cancelBatchTarget.items?.length || 0;
+    
     this.api.cancelBatch({ batch_id: bid }).subscribe({
-      next: () => {
-        this.toast.success('Conjunto cancelado');
+      next: (response) => {
+        const data = response?.data || {};
+        const count = data.count || 0;
+        const alreadyCancelled = data.already_cancelled === true;
+        
+        if (alreadyCancelled || count === 0) {
+          // Batch ya fue cancelado previamente (idempotencia)
+          this.toast.success(response.message || 'El conjunto ya estaba cancelado');
+        } else  {
+          // Cancelación exitosa de reservas activas
+          this.toast.success(`Conjunto cancelado (${count} reserva${count !== 1 ? 's' : ''})`);
+        }
+        
         this.closeCancelBatch();
+        
+        // SIEMPRE refrescar el listado para reflejar el estado real
         this.api.getMyReservations().subscribe({
-          next: (res) => { this.reservas = res.data || []; this.buildGroups(); }
+          next: (res) => { 
+            this.reservas = res.data || []; 
+            this.buildGroups();
+            console.log('[CANCEL-BATCH] Listado actualizado:', this.grupos.length, 'grupos');
+          },
+          error: (err) => {
+            this.toast.error('Error al recargar reservas');
+            console.error('[CANCEL-BATCH] Error al recargar:', err);
+          }
         });
       },
-      error: (err) => this.toast.error(err?.error?.message || 'Error al cancelar conjunto')
+      error: (err) => {
+        const msg = err?.error?.message || 'Error al cancelar conjunto';
+        this.toast.error(msg);
+        console.error('[CANCEL-BATCH] Error:', err);
+      }
     });
   }
 }

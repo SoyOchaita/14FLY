@@ -540,6 +540,8 @@ export const cancelReservation = async (req, res) => {
     const uid = req.user.id;
     const { reason = null } = req.body || {};
     
+    console.log(`[CANCEL] User ${uid} cancelling reservation ${id}`);
+    
     // Obtener detalles antes de marcar como eliminado
     const { rows } = await pool.query(
       `SELECT r.reservation_id, r.seat_id, s.seat_number, p.full_name, p.cui, u.email, r.status, r.price_base, r.total_price
@@ -550,7 +552,10 @@ export const cancelReservation = async (req, res) => {
         WHERE r.reservation_id=$1 AND r.user_id=$2 AND r.deleted_at IS NULL`,
       [id, uid]
     );
-    if (!rows.length) throw new HttpError("Reserva no encontrada o ya cancelada", 404);
+    if (!rows.length) {
+      console.log(`[CANCEL] Reservation ${id} not found or already cancelled`);
+      throw new HttpError("Reserva no encontrada o ya cancelada", 404);
+    }
     
     const seatId = rows[0].seat_id;
     const seatNumber = rows[0].seat_number;
@@ -560,14 +565,16 @@ export const cancelReservation = async (req, res) => {
     const reservation = rows[0];
     
     // SOFT DELETE: marcar como eliminado en lugar de DELETE
-    await pool.query("UPDATE reservations SET deleted_at = NOW() WHERE reservation_id=$1", [id]);
+    const updateResult = await pool.query("UPDATE reservations SET deleted_at = NOW() WHERE reservation_id=$1", [id]);
+    console.log(`[CANCEL] Soft delete applied, rows affected: ${updateResult.rowCount}`);
     
     // Liberar el asiento
-    await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id=$1", [seatId]);
+    const seatResult = await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id=$1", [seatId]);
+    console.log(`[CANCEL] Seat ${seatNumber} freed, rows affected: ${seatResult.rowCount}`);
 
     // Registrar en auditoría con detalles
     try {
-      await AuditLog.log(uid, Number(id), "cancelled", {
+      const auditResult = await AuditLog.log(uid, Number(id), "cancelled", {
         reason: reason || "Cancelación de usuario",
         details: {
           seat_id: seatId,
@@ -582,8 +589,10 @@ export const cancelReservation = async (req, res) => {
         ipAddress: req.ip || req.connection.remoteAddress || null,
         userAgent: req.get("user-agent") || null,
       });
+      console.log(`[CANCEL] Audit logged with ID: ${auditResult?.audit_id}`);
     } catch (logErr) {
-      console.warn('No se pudo registrar auditoría de cancelación:', logErr.message);
+      console.error('[CANCEL] Failed to log audit:', logErr.message, logErr.stack);
+      // No lanzar error, solo advertir
     }
 
     // Enviar correo (best-effort)
@@ -620,8 +629,10 @@ export const cancelReservation = async (req, res) => {
       }
     }
 
+    console.log(`[CANCEL] Reservation ${id} successfully cancelled`);
     return ok(res, "Reserva cancelada", { reservation_id: Number(id), seat_code: seatNumber, cancelled_at: new Date().toISOString() });
   } catch (err) {
+    console.error('[CANCEL] Error:', err.message, err.stack);
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });
   }
@@ -728,6 +739,8 @@ export const cancelBatchReservations = async (req, res) => {
     const { batch_id, reason = null } = req.body || {};
     if (!batch_id) throw new HttpError("Debe proporcionar batch_id.", 400);
     
+    console.log(`[CANCEL-BATCH] User ${uid} cancelling batch ${batch_id}`);
+    
     // Obtener reservas del batch del usuario que no están eliminadas
     const q = await pool.query(
       `SELECT r.reservation_id, r.seat_id, s.seat_number, u.email
@@ -737,14 +750,36 @@ export const cancelBatchReservations = async (req, res) => {
         WHERE r.user_id=$1 AND r.batch_id=$2 AND r.deleted_at IS NULL`,
       [uid, batch_id]
     );
-    if (!q.rows.length) throw new HttpError("No se encontraron reservas activas para ese batch.", 404);
+    
+    // IDEMPOTENCIA: Si no hay reservas activas, el batch ya fue cancelado
+    if (!q.rows.length) {
+      console.log(`[CANCEL-BATCH] Batch ${batch_id} already cancelled (0 active reservations)`);
+      return ok(res, "Este conjunto ya fue cancelado previamente.", { 
+        batch_id, 
+        count: 0, 
+        already_cancelled: true, 
+        cancelled_at: new Date().toISOString() 
+      });
+    }
     
     const seatIds = q.rows.map(r => r.seat_id);
     const reservationIds = q.rows.map(r => r.reservation_id);
     
-    // SOFT DELETE: marcar como eliminado en lugar de DELETE
-    await pool.query("UPDATE reservations SET deleted_at = NOW() WHERE reservation_id = ANY($1::int[])", [reservationIds]);
-    await pool.query("UPDATE seats SET is_occupied=false WHERE seat_id = ANY($1::int[])", [seatIds]);
+    console.log(`[CANCEL-BATCH] Found ${reservationIds.length} active reservations to cancel`);
+    
+    // SOFT DELETE: marcar como eliminado en lugar de DELETE con RETURNING para confirmar
+    const updateResult = await pool.query(
+      "UPDATE reservations SET deleted_at = NOW() WHERE reservation_id = ANY($1::int[]) RETURNING reservation_id", 
+      [reservationIds]
+    );
+    const cancelledCount = updateResult.rowCount || 0;
+    console.log(`[CANCEL-BATCH] Soft deleted ${cancelledCount} reservations`);
+    
+    const seatResult = await pool.query(
+      "UPDATE seats SET is_occupied=false WHERE seat_id = ANY($1::int[]) RETURNING seat_id", 
+      [seatIds]
+    );
+    console.log(`[CANCEL-BATCH] Freed ${seatResult.rowCount} seats`);
 
     // Registrar cada cancelación en auditoría
     try {
@@ -754,13 +789,15 @@ export const cancelBatchReservations = async (req, res) => {
           details: {
             batch_id,
             batch_cancellation: true,
+            batch_size: reservationIds.length,
           },
           ipAddress: req.ip || req.connection.remoteAddress || null,
           userAgent: req.get("user-agent") || null,
         });
       }
+      console.log(`[CANCEL-BATCH] Audit logged for ${reservationIds.length} reservations`);
     } catch (logErr) {
-      console.warn('No se pudo registrar actividad de cancelación (batch):', logErr.message);
+      console.error('[CANCEL-BATCH] Failed to log audit:', logErr.message, logErr.stack);
     }
 
     // Enviar correo si existe email (usar el primero)
@@ -792,11 +829,19 @@ export const cancelBatchReservations = async (req, res) => {
           text: `Se han cancelado ${reservationIds.length} reservas. Asientos: ${seatsList}`
         });
       } catch (e) {
-        console.warn('Fallo al enviar correo batch cancel:', e.message);
+        console.warn('[CANCEL-BATCH] Failed to send email:', e.message);
       }
     }
-    return ok(res, "Conjunto cancelado", { batch_id, count: reservationIds.length, cancelled_at: new Date().toISOString() });
+    
+    console.log(`[CANCEL-BATCH] Successfully cancelled batch ${batch_id} (${cancelledCount} reservations)`);
+    return ok(res, "Conjunto cancelado exitosamente", { 
+      batch_id, 
+      count: cancelledCount, 
+      already_cancelled: false,
+      cancelled_at: new Date().toISOString() 
+    });
   } catch (err) {
+    console.error('[CANCEL-BATCH] Error:', err.message, err.stack);
     const status = err.status || 500;
     return res.status(status).json({ success: false, message: err.message, data: err.data || null });
   }

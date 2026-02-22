@@ -1,34 +1,39 @@
-<div class="min-h-screen flex flex-col text-white">
+<div class="min-h-screen flex flex-col text-white overflow-x-hidden">
   <!-- Navbar translúcida -->
   <header class="sticky top-0 z-20 bg-dark/80 backdrop-blur-xl border-b border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.25)]">
-    <div class="container flex items-center justify-between py-4">
-      <div class="flex items-center gap-3">
-        <img src="assets/logo-14fly.svg" alt="14FLY" class="brand-logo select-none" draggable="false" />
-        <span class="text-softblue/80 hidden sm:inline">Viajar ligero, elegante y humano</span>
+    <div class="container flex items-center justify-between py-3 px-4 sm:py-4">
+      <div class="flex items-center gap-2 sm:gap-3">
+        <img src="assets/logo-14fly.svg" alt="14FLY" class="brand-logo select-none h-8 sm:h-10" draggable="false" />
+        <span class="text-softblue/80 hidden lg:inline text-xs sm:text-sm">Viajar ligero, elegante y humano</span>
       </div>
-      <nav class="flex items-center gap-4 text-softblue">
+      <nav class="flex items-center gap-2 sm:gap-4 text-softblue text-sm overflow-visible">
         <ng-container *ngIf="auth.isLoggedIn(); else guestLinks">
-          <span class="hidden sm:inline text-softblue/80">Hola, <span class="text-white">{{ auth.displayName() }}</span></span>
-          <a routerLink="/reservas/crear" routerLinkActive="text-accent" class="hover:text-accent">Nueva reserva</a>
-          <a routerLink="/reservas/mis-reservas" routerLinkActive="text-accent" class="hover:text-accent">Mis reservas</a>
-          <a routerLink="/reservas/historial" routerLinkActive="text-accent" class="hover:text-accent">📊 Historial</a>
-          <a routerLink="/me" routerLinkActive="text-accent" class="hover:text-accent">Mi perfil</a>
+          <span class="hidden md:inline text-softblue/80 text-xs sm:text-sm">Hola, <span class="text-white">{{ auth.displayName() }}</span></span>
+          <a routerLink="/reservas/crear" routerLinkActive="text-accent" class="hover:text-accent whitespace-nowrap">Nueva</a>
+          <a routerLink="/reservas/mis-reservas" routerLinkActive="text-accent" class="hover:text-accent whitespace-nowrap">Mis reservas</a>
+          <a routerLink="/reservas/historial" routerLinkActive="text-accent" class="hover:text-accent whitespace-nowrap flex items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+            </svg>
+            <span class="hidden sm:inline">Historial</span>
+          </a>
+          <a routerLink="/me" routerLinkActive="text-accent" class="hover:text-accent whitespace-nowrap hidden sm:inline">Perfil</a>
           <!-- Admin actions -->
           <ng-container *ngIf="auth.isAdmin()">
             <div class="relative">
-              <button type="button" class="hover:text-accent" (click)="toggleAdminMenu()">Admin ▾</button>
-              <div *ngIf="adminMenuOpen" class="absolute right-0 mt-2 bg-dark border border-white/10 rounded shadow-xl min-w-64 p-2 z-30">
-                <button type="button" (click)="downloadAllReservationsXML(); closeAdminMenu()" class="block w-full text-left px-3 py-2 rounded hover:bg-white/5">Descargar reservas (XML)</button>
-                <button type="button" (click)="openAdminImportModal(); closeAdminMenu()" class="block w-full text-left px-3 py-2 rounded hover:bg-white/5">Cargar reservas (XML)</button>
-                <button type="button" (click)="goToAdminReport(); closeAdminMenu()" class="block w-full text-left px-3 py-2 rounded hover:bg-white/5">Reportes</button>
+              <button type="button" class="hover:text-accent whitespace-nowrap" (click)="toggleAdminMenu()">Admin ▾</button>
+              <div *ngIf="adminMenuOpen" class="absolute right-0 top-full mt-2 bg-dark border border-white/10 rounded shadow-xl min-w-60 sm:min-w-64 p-2 z-40">
+                <button type="button" (click)="downloadAllReservationsXML(); closeAdminMenu()" class="block w-full text-left px-3 py-2 text-sm rounded hover:bg-white/5">Descargar reservas (XML)</button>
+                <button type="button" (click)="openAdminImportModal(); closeAdminMenu()" class="block w-full text-left px-3 py-2 text-sm rounded hover:bg-white/5">Cargar reservas (XML)</button>
+                <button type="button" (click)="goToAdminReport(); closeAdminMenu()" class="block w-full text-left px-3 py-2 text-sm rounded hover:bg-white/5">Reportes</button>
               </div>
             </div>
           </ng-container>
-          <button type="button" (click)="auth.logout()" class="hover:text-accent">Cerrar sesión</button>
+          <button type="button" (click)="auth.logout()" class="hover:text-accent whitespace-nowrap">Salir</button>
         </ng-container>
         <ng-template #guestLinks>
-          <a routerLink="/login" routerLinkActive="text-accent" class="hover:text-accent">Ingresar</a>
-          <a routerLink="/register" routerLinkActive="text-accent" class="hover:text-accent">Registrarse</a>
+          <a routerLink="/login" routerLinkActive="text-accent" class="hover:text-accent whitespace-nowrap">Ingresar</a>
+          <a routerLink="/register" routerLinkActive="text-accent" class="hover:text-accent whitespace-nowrap">Registrarse</a>
         </ng-template>
       </nav>
     </div>
@@ -36,15 +41,16 @@
 
   <!-- Contenido -->
   <main class="flex-1">
-    <div class="container py-10 sm:py-16">
+    <div class="container py-6 px-4 sm:py-10 md:py-16">
       <router-outlet />
     </div>
   </main>
 
   <!-- Footer oscuro con degradado -->
   <footer class="mt-auto bg-gradient-to-br from-dark to-graphite border-t border-white/10 text-softblue">
-    <div class="container py-8 text-center">
-      14FLY © 2025</div>
+    <div class="container py-6 sm:py-8 text-center px-4">
+      <p class="text-sm sm:text-base">14FLY © 2025</p>
+    </div>
   </footer>
 </div>
 
