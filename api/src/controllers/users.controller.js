@@ -156,7 +156,11 @@ export const login = async (req, res) => {
 export const isVip = async (req, res) => {
   try {
     const { id } = req.user;
-    const { rows } = await pool.query("SELECT COUNT(*)::int AS cnt FROM reservations WHERE user_id=$1", [id]);
+    // Cuenta solo reservas activas (no soft-deleted)
+    const { rows } = await pool.query(
+      "SELECT COUNT(*)::int AS cnt FROM reservations WHERE user_id=$1 AND deleted_at IS NULL", 
+      [id]
+    );
     const count = rows[0]?.cnt || 0;
     const vip = count >= 5;
     return ok(res, vip ? "Usuario VIP" : "Usuario estándar", { isVIP: vip, reservations: count });
@@ -170,21 +174,54 @@ export const isVip = async (req, res) => {
 export const myActivitySummary = async (req, res) => {
   try {
     const { id } = req.user;
-    const [resCountQ, actQ] = await Promise.all([
-      pool.query('SELECT COUNT(*)::int AS reservations FROM reservations WHERE user_id=$1', [id]),
-      pool.query(`SELECT
-        SUM(CASE WHEN type='modified' THEN 1 ELSE 0 END)::int AS modified,
-        SUM(CASE WHEN type='cancelled' THEN 1 ELSE 0 END)::int AS cancelled,
-        SUM(CASE WHEN type='created' AND selection_mode='manual' THEN 1 ELSE 0 END)::int AS created_manual,
-        SUM(CASE WHEN type='created' AND selection_mode='random' THEN 1 ELSE 0 END)::int AS created_random
-      FROM reservation_activity WHERE user_id=$1`, [id])
-    ]);
+    
+    // Consulta mejorada que cuenta el estado ACTUAL de las reservas
+    const query = `
+      SELECT
+        -- Total de reservas activas (no canceladas)
+        COUNT(*) FILTER (WHERE r.deleted_at IS NULL)::int AS reservations_active,
+        -- Total de reservas canceladas (soft-deleted)
+        COUNT(*) FILTER (WHERE r.deleted_at IS NOT NULL)::int AS reservations_cancelled,
+        
+        -- Reservas que han sido modificadas (tienen registro de modificación en la actividad)
+        COUNT(DISTINCT CASE 
+          WHEN EXISTS (
+            SELECT 1 FROM reservation_activity ra 
+            WHERE ra.reservation_id = r.reservation_id 
+            AND ra.type = 'modified'
+          ) THEN r.reservation_id 
+        END)::int AS modified,
+        
+        -- Selección inicial: manual vs aleatorio (del primer registro de creación)
+        COUNT(DISTINCT CASE 
+          WHEN EXISTS (
+            SELECT 1 FROM reservation_activity ra 
+            WHERE ra.reservation_id = r.reservation_id 
+            AND ra.type = 'created' 
+            AND ra.selection_mode = 'manual'
+          ) THEN r.reservation_id 
+        END)::int AS created_manual,
+        COUNT(DISTINCT CASE 
+          WHEN EXISTS (
+            SELECT 1 FROM reservation_activity ra 
+            WHERE ra.reservation_id = r.reservation_id 
+            AND ra.type = 'created' 
+            AND ra.selection_mode = 'random'
+          ) THEN r.reservation_id 
+        END)::int AS created_random
+      FROM reservations r
+      WHERE r.user_id = $1
+    `;
+    
+    const { rows } = await pool.query(query, [id]);
+    const data = rows[0] || {};
+    
     return ok(res, 'Actividad del usuario', {
-      reservations: resCountQ.rows[0]?.reservations || 0,
-      modified: actQ.rows[0]?.modified || 0,
-      cancelled: actQ.rows[0]?.cancelled || 0,
-      created_manual: actQ.rows[0]?.created_manual || 0,
-      created_random: actQ.rows[0]?.created_random || 0
+      reservations: data.reservations_active || 0,
+      modified: data.modified || 0,
+      cancelled: data.reservations_cancelled || 0,
+      created_manual: data.created_manual || 0,
+      created_random: data.created_random || 0
     });
   } catch (err) {
     const status = err.status || 500;
