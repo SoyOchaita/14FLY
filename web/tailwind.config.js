@@ -12,7 +12,7 @@ module.exports = {
         white: '#ffffff',
       },
       fontFamily: {
-        sans: ['Raleway', 'sans-serif'],
+        sans: ['Sora', 'sans-serif'],
       },
       boxShadow: {
         air: '0 10px 30px rgba(0, 0, 0, 0.1)',

@@ -13,15 +13,18 @@ import { ToastService } from '../../ui/toast/toast.service';
   styleUrl: './mis-reservas.component.scss'
 })
 export class MisReservasComponent implements OnInit {
-  reservas: Array<{ reservation_id: number; seat_code: string; created_at: string; full_name: string; cui: string; has_bag: boolean; batch_id?: string | null; seat_class?: string; total?: number; price_base?: number }> = [];
+  reservas: Array<{ reservation_id: number; seat_code: string; created_at: string; full_name: string; cui: string; has_bag: boolean; batch_id?: string | null; seat_class?: string; total?: number; price_base?: number; selection_mode?: 'manual' | 'random' | null }> = [];
   grupos: Array<{
     batch_id: string;
+    real_batch_id: string | null;
     created_at: string; // del primer item
     count: number;
     classes: string[]; // únicas
     sum_base: number;
     sum_total: number;
     items: any[];
+    is_single: boolean;
+    reservation_ids: number[];
   }> = [];
   highlightId: number | null = null;
   // Modal edición
@@ -81,7 +84,20 @@ export class MisReservasComponent implements OnInit {
       const classes = Array.from(new Set(list.map((x: any) => x.seat_class).filter(Boolean)));
       const sum_base = list.reduce((acc: number, it: any) => acc + Number(it?.price_base || 0), 0);
       const sum_total = list.reduce((acc: number, it: any) => acc + Number(it?.total || 0), 0);
-      groups.push({ batch_id: key, created_at, count: list.length, classes, sum_base, sum_total, items: list });
+      const realBatchId = list[0]?.batch_id ? String(list[0].batch_id) : null;
+      const reservationIds = list.map((it: any) => Number(it.reservation_id)).filter((id: number) => !Number.isNaN(id));
+      groups.push({
+        batch_id: key,
+        real_batch_id: realBatchId,
+        created_at,
+        count: list.length,
+        classes,
+        sum_base,
+        sum_total,
+        items: list,
+        is_single: list.length === 1 && !realBatchId,
+        reservation_ids: reservationIds
+      });
     }
     // Ordenar grupos por fecha desc (primer item)
     groups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -307,14 +323,22 @@ export class MisReservasComponent implements OnInit {
   }
 
   // Cancelación por conjunto
-  openCancelBatch(group: { batch_id: string; items: any[] }) {
-    if (!group?.batch_id) return;
+  openCancelBatch(group: { batch_id: string; real_batch_id: string | null; items: any[]; is_single: boolean }) {
+    if (!group) return;
+    if (group.is_single) {
+      const item = group.items?.[0];
+      if (item) {
+        this.openCancel(item);
+      }
+      return;
+    }
+    if (!group.real_batch_id) return;
     // Prevenir apertura de modal si el grupo está vacío (edge case de race conditions)
     if (!group.items || group.items.length === 0) {
       this.toast.error('Este conjunto ya no tiene reservas activas.');
       return;
     }
-    this.cancelBatchTarget = { batch_id: group.batch_id, items: group.items || [] };
+    this.cancelBatchTarget = { batch_id: group.real_batch_id, items: group.items || [] };
     this.confirmPhrase = '';
     this.showCancelBatchModal = true;
   }

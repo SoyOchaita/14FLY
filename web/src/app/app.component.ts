@@ -21,6 +21,7 @@ export class AppComponent implements OnInit {
   importSummary: ImportSummary | null = null;
   lastSuccessSeatCodes: string[] = [];
   adminMenuOpen = false;
+  mobileMenuOpen = false;
   constructor(public auth: AuthService, private http: HttpClient, private router: Router) {}
 
   ngOnInit(): void {
@@ -120,4 +121,14 @@ export class AppComponent implements OnInit {
 
   toggleAdminMenu() { this.adminMenuOpen = !this.adminMenuOpen; }
   closeAdminMenu() { this.adminMenuOpen = false; }
+  toggleMobileMenu() {
+    this.mobileMenuOpen = !this.mobileMenuOpen;
+    if (this.mobileMenuOpen) {
+      this.closeAdminMenu();
+    }
+  }
+  closeMobileMenu() {
+    this.mobileMenuOpen = false;
+    this.closeAdminMenu();
+  }
 }

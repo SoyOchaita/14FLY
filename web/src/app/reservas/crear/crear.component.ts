@@ -30,6 +30,7 @@ export class CrearComponent implements OnInit {
   showRandomModal = false;
   modalQuantity = 1;
   modalExceeded = false;
+  private selectionModeOverride: 'manual' | 'random' = 'manual';
   // Modal de confirmación
   showConfirmModal = false;
   confirmList: Array<{ reservation_id: number; seat_code: string; created_at: string; total?: number; price_base?: number; discount?: number; vip_applied?: boolean }> = [];
@@ -76,6 +77,7 @@ export class CrearComponent implements OnInit {
         // Limpia o depura selección según parámetro
         if (clearSelection) {
           this.seleccionados = [];
+          this.selectionModeOverride = 'manual';
           // Reiniciar cantidad a 1 tras limpiar selección para evitar desajustes
           const max = this.availableInClass();
           this.cantidad = (Math.min(1, max) || 1);
@@ -96,6 +98,7 @@ export class CrearComponent implements OnInit {
 
   toggleSeleccion(seat: any) {
     if (!seat) return;
+    this.selectionModeOverride = 'manual';
 
     const idx = this.seleccionados.findIndex((s) => s.code === seat.code);
     if (idx >= 0) {
@@ -135,7 +138,7 @@ export class CrearComponent implements OnInit {
     const batchId = crypto?.randomUUID ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2));
     const seatsPayload = this.seleccionados.map(s => ({ code: s.code, full_name: s.full_name, cui: s.cui, has_bag: s.has_bag }));
     this.loading = true;
-    this.reservas.createReservation({ seats: seatsPayload, selectionMode: 'manual', batch_id: batchId }).subscribe({
+    this.reservas.createReservation({ seats: seatsPayload, selectionMode: this.selectionModeOverride, batch_id: batchId }).subscribe({
       next: (res) => {
         const created = Array.isArray(res?.data) ? res.data : [];
         this.confirmList = created;
@@ -224,6 +227,7 @@ export class CrearComponent implements OnInit {
     // Al cambiar de clase, limpiar selección manual y ajustar pasajeros
     this.seleccionados = [];
     this.activeSeatIndex = 0;
+    this.selectionModeOverride = 'manual';
     // Actualizar límites por disponibilidad
     // Reiniciar cantidad a 1 para evitar quedar con cantidades altas sin selección
     const max = this.availableInClass();
@@ -266,6 +270,11 @@ export class CrearComponent implements OnInit {
     return this.tipo === 'business'
       ? [['I', 'G'], ['F', 'D'], ['C', 'A']]
       : [['I', 'H', 'G'], ['F', 'E', 'D'], ['C', 'B', 'A']];
+  }
+
+  isAisleAfter(col: number): boolean {
+    if (this.tipo === 'business') return col === 1;
+    return col === 4;
   }
 
   getSeat(row: string, col: number): any | null {
@@ -313,6 +322,7 @@ export class CrearComponent implements OnInit {
     // Nuevo flujo: solo selecciona asientos aleatorios localmente y permite que el usuario ingrese datos.
     // Evitamos enviar placeholders inválidos (CUI vacío / genérico) al backend antes de que el usuario edite.
     this.pickRandomSeats(n);
+    this.selectionModeOverride = 'random';
     this.cantidad = this.seleccionados.length; // sincronizar cantidad con lo elegido
     this.closeRandomModal();
     this.toast.info('Asientos seleccionados aleatoriamente. Completa los datos y confirma la reserva.');

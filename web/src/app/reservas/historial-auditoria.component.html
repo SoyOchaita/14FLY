@@ -79,12 +79,15 @@
             </div>
             <div>
               <p class="text-slate-400 text-sm">Clase</p>
-              <p class="text-white font-semibold">
+              <p class="text-white font-semibold flex items-center gap-2 flex-wrap">
                 <span *ngIf="getSeatClassBadge(reserva.seat_class) === 'business'" class="bg-blue-500/20 text-blue-300 px-3 py-1 rounded text-sm">
                   🎯 {{ reserva.seat_class }}
                 </span>
                 <span *ngIf="getSeatClassBadge(reserva.seat_class) === 'economy'" class="bg-green-500/20 text-green-300 px-3 py-1 rounded text-sm">
                   💰 {{ reserva.seat_class }}
+                </span>
+                <span *ngIf="reserva.selection_mode === 'random'" class="bg-slate-600/40 text-slate-200 px-2 py-0.5 rounded text-xs uppercase tracking-wide">
+                  Aleatorio
                 </span>
               </p>
             </div>

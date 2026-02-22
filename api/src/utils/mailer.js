@@ -86,10 +86,16 @@ export function renderTemplate({ title, intro, contentHtml, footerHtml, logoCid,
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(String(title || brand))}</title>
   </head>
-  <body style="margin:0;padding:24px;background:${dark};background-image:${bgGradient};font-family:Raleway, Segoe UI, Roboto, Helvetica, Arial, sans-serif;color:${text};">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:700px;margin:0 auto;background:${cardBg};border-radius:16px;overflow:hidden;border:${border};box-shadow:${shadow}">
+  <body style="margin:0;padding:28px;background:${dark};background-image:${bgGradient};font-family:Raleway, Segoe UI, Roboto, Helvetica, Arial, sans-serif;color:${text};">
+    <span style="display:none!important;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">
+      ${escapeHtml(String(intro || title || brand))}
+    </span>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;margin:0 auto;background:${cardBg};border-radius:18px;overflow:hidden;border:${border};box-shadow:${shadow}">
       <tr>
-        <td style="padding:16px 20px;background:rgba(0,0,0,0.20);border-bottom:${border}">
+        <td style="height:4px;background:${accent}"></td>
+      </tr>
+      <tr>
+        <td style="padding:18px 22px;background:rgba(0,0,0,0.20);border-bottom:${border}">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
             <tr>
               <td style="vertical-align:middle">
@@ -99,17 +105,24 @@ export function renderTemplate({ title, intro, contentHtml, footerHtml, logoCid,
                   <span style="display:inline-block;margin-left:8px;padding:4px 10px;border-radius:999px;background:${accent};color:${dark};font-weight:600;font-size:12px">Travel</span>
                 </div>
               </td>
+              <td style="text-align:right;vertical-align:middle;color:${text};opacity:.8;font-size:12px">
+                ${escapeHtml(String(title || 'Notificacion'))}
+              </td>
             </tr>
           </table>
         </td>
       </tr>
-      ${intro ? `<tr><td style="padding:8px 24px;color:${text};opacity:.9;font-size:13px">${escapeHtml(String(intro))}</td></tr>` : ''}
+      ${intro ? `<tr><td style="padding:10px 24px 0;color:${text};opacity:.9;font-size:13px">${escapeHtml(String(intro))}</td></tr>` : ''}
       <tr>
-        <td style="padding:16px 24px">${contentHtml || ''}</td>
+        <td style="padding:16px 24px 24px">
+          <div style="background:rgba(0,0,0,0.18);border:${border};border-radius:14px;padding:16px">
+            ${contentHtml || ''}
+          </div>
+        </td>
       </tr>
-      ${footerHtml ? `<tr><td style="padding:16px 24px;color:${text};opacity:.9;font-size:12px;border-top:${border}">${footerHtml}</td></tr>` : ''}
+      ${footerHtml ? `<tr><td style="padding:14px 24px 20px;color:${text};opacity:.9;font-size:12px;border-top:${border}">${footerHtml}</td></tr>` : ''}
     </table>
-    <div style="max-width:720px;margin:10px auto 0;text-align:center;color:${text};opacity:.7;font-size:11px">Este mensaje fue enviado automáticamente. No respondas a este correo.</div>
+    <div style="max-width:700px;margin:12px auto 0;text-align:center;color:${text};opacity:.7;font-size:11px">Este mensaje fue enviado automaticamente. No respondas a este correo.</div>
   </body>
   </html>`;
 }

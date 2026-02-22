@@ -2,7 +2,14 @@ import { pool } from "../db/pool.js";
 import { randomUUID } from "crypto";
 import { ok, HttpError } from "../utils/response.js";
 import { validateCUI, validateFullName } from "../utils/validators.js";
-import { sendMail, renderTemplate } from "../utils/mailer.js";
+import { sendMail } from "../utils/mailer.js";
+import {
+  buildReservationCreatedEmail,
+  buildVipStatusEmail,
+  buildReservationUpdatedEmail,
+  buildReservationCancelledEmail,
+  buildBatchCancelledEmail
+} from "../services/reservationEmail.service.js";
 import { AuditLog } from "../utils/auditLog.js";
 
 // Precios base por clase (configurables vía ENV)
@@ -208,61 +215,26 @@ export const createReservation = async (req, res) => {
           const becameVip = beforeCount < 5 && afterCount >= 5;
           const pendingForVip = Math.max(0, 5 - afterCount);
 
-          const vipNote = anyVip
-            ? '<p style="color:#16a34a;margin-top:6px">Descuento VIP (10%) aplicado en esta compra.</p>'
-            : (becameVip
-              ? '<p style="color:#93c5fd;margin-top:6px">¡Acabas de alcanzar estatus VIP! El 10% se aplicará en tus próximas reservas.</p>'
-              : `<p style="color:#93c5fd;margin-top:6px">Aún no eres VIP. Te faltan <strong>${pendingForVip}</strong> reserva(s) para obtener 10% de descuento.</p>`);
-
-          const contentHtml = `
-            <h2 style="margin:0 0 8px;color:#fff">Reserva confirmada</h2>
-            <p style="margin:0 0 8px">Hola <strong>${name || email}</strong>, gracias por reservar con 14FLY.</p>
-            <p style="margin:0 0 8px"><strong>Asientos:</strong> ${seatsList}</p>
-            <h3 style="margin:12px 0 6px;color:#fff;font-size:16px">Resumen</h3>
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid rgba(255,255,255,.08);border-radius:8px;overflow:hidden;min-width:360px">
-              <thead style="background:rgba(255,255,255,.04)">
-                <tr>
-                  <th style="text-align:left;padding:8px 12px">Clase</th>
-                  <th style="text-align:center;padding:8px 12px">Asientos</th>
-                  <th style="text-align:right;padding:8px 12px">Precio</th>
-                  <th style="text-align:right;padding:8px 12px">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>${rowsHtml}</tbody>
-              <tfoot>
-                <tr>
-                  <td colspan="3" style="padding:8px 12px;text-align:right;color:#93c5fd">Total (${totalSeats} asiento(s))</td>
-                  <td style="padding:8px 12px;text-align:right;font-weight:600">${nf.format(totalGroup)}</td>
-                </tr>
-              </tfoot>
-            </table>
-            ${vipNote}
-            ${cta}
-            <p style="margin:12px 0 0;color:#cbd5e1;font-size:12px">Si no realizaste esta compra, contáctanos de inmediato.</p>
-          `;
-          const html = renderTemplate({ title: 'Reserva confirmada', intro: 'Detalles de tu compra.', contentHtml });
-          sendMail({ to: email, subject: '14FLY • Reserva confirmada', html, text: `Reserva confirmada: ${totalSeats} asiento(s). Total: Q${totalGroup.toFixed(2)}. Asientos: ${seatsList}` })
+          const createdEmail = buildReservationCreatedEmail({
+            name,
+            email,
+            seatsList,
+            rowsHtml,
+            totalSeats,
+            totalGroup,
+            anyVip,
+            becameVip,
+            pendingForVip,
+            appUrl
+          });
+          sendMail({ to: email, subject: createdEmail.subject, html: createdEmail.html, text: createdEmail.text })
             .catch(e => console.warn('Fallo al enviar correo de creación:', e.message));
 
           // Si el usuario acaba de alcanzar VIP, enviar correo de estatus VIP
           if (becameVip) {
             try {
-              const appUrl = process.env.WEB_URL || process.env.APP_URL || process.env.FRONTEND_URL || '';
-              const cta = appUrl
-                ? `<p style="margin:16px 0 0"><a href="${appUrl}" style="display:inline-block;background:#f9b17a;color:#2d3250;text-decoration:none;font-weight:700;padding:10px 16px;border-radius:10px">Reservar ahora</a></p>`
-                : '';
-              const contentHtml = `
-                <h2 style="margin:0 0 8px;color:#fff">¡Felicidades, ${name || email}!</h2>
-                <p style="margin:0 0 8px">Has alcanzado el nivel <strong>VIP</strong> en 14FLY.</p>
-                <ul style="margin:8px 0 0;padding-left:18px;color:#c7d2fe">
-                  <li>10% de descuento en tus reservas.</li>
-                  <li>Atención prioritaria.</li>
-                  <li>Promociones exclusivas.</li>
-                </ul>
-                ${cta}
-              `;
-              const vipHtml = renderTemplate({ title: 'Estatus VIP', intro: 'Beneficios VIP activados en tu cuenta', contentHtml });
-              await sendMail({ to: email, subject: '14FLY • ¡Eres VIP!', html: vipHtml, text: 'Has alcanzado el nivel VIP en 14FLY. Disfruta 10% de descuento en tus reservas.' });
+              const vipEmail = buildVipStatusEmail({ name, email, appUrl });
+              await sendMail({ to: email, subject: vipEmail.subject, html: vipEmail.html, text: vipEmail.text });
             } catch (vipErr) {
               console.warn('Fallo al enviar correo de estatus VIP:', vipErr.message);
             }
@@ -291,10 +263,18 @@ export const getMyReservations = async (req, res) => {
               p.full_name, p.cui,
               r.has_luggage AS has_bag,
               r.price_base, r.total_price AS total,
-              r.batch_id
+              r.batch_id,
+              ra.selection_mode
          FROM reservations r
          JOIN seats s ON s.seat_id = r.seat_id
          JOIN passengers p ON p.passenger_id = r.passenger_id
+         LEFT JOIN LATERAL (
+           SELECT selection_mode
+             FROM reservation_activity
+            WHERE reservation_id = r.reservation_id AND type = 'created'
+            ORDER BY created_at DESC
+            LIMIT 1
+         ) ra ON true
         WHERE r.user_id = $1 AND r.deleted_at IS NULL
         ORDER BY r.reservation_date DESC`,
       [req.user.id]
@@ -389,7 +369,6 @@ export const updateReservation = async (req, res) => {
       const email = u.rows[0]?.email;
       const name = u.rows[0]?.full_name || '';
       if (email) {
-        const currency = (n) => new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(Number(n || 0));
         const afterSeatText = seatChanged ? (typeof newSeatNumber !== 'undefined' ? newSeatNumber : '(actualizado)') : prevSeatNumber;
         const luggageChanged = typeof has_luggage === 'boolean' ? (has_luggage !== !!prev.has_luggage) : false;
         const feeAdded = Math.max(0, Number(newFee) - Number(prevFee));
@@ -405,65 +384,19 @@ export const updateReservation = async (req, res) => {
         const paxCuiClean = cui ? String(cui).replace(/[\s\-]/g, "") : null;
         const paxCuiChanged = paxCuiClean ? paxCuiClean !== prevPaxCui : (newPassengerId ? afterPaxCui !== prevPaxCui : false);
 
-        const changesTableRows = [
-          `<tr><td style="padding:8px 12px">Asiento</td><td style="padding:8px 12px;color:#93c5fd">${prevSeatNumber || '—'}</td><td style="padding:8px 12px;text-align:right">${afterSeatText || '—'}</td></tr>`,
-          ...(luggageChanged ? [`<tr><td style=\"padding:8px 12px\">Equipaje</td><td style=\"padding:8px 12px;color:#93c5fd\">${prev.has_luggage ? 'Sí' : 'No'}</td><td style=\"padding:8px 12px;text-align:right\">${has_luggage ? 'Sí' : 'No'}</td></tr>`] : []),
-          ...(paxNameChanged ? [`<tr><td style=\"padding:8px 12px\">Pasajero</td><td style=\"padding:8px 12px;color:#93c5fd\">${prevPaxName || '—'}</td><td style=\"padding:8px 12px;text-align:right\">${afterPaxName || '—'}</td></tr>`] : []),
-          ...(paxCuiChanged ? [`<tr><td style=\"padding:8px 12px\">CUI</td><td style=\"padding:8px 12px;color:#93c5fd\">${prevPaxCui || '—'}</td><td style=\"padding:8px 12px;text-align:right\">${afterPaxCui || '—'}</td></tr>`] : []),
-        ].join('');
-
-        const changesTable = changesTableRows
-          ? `
-            <h3 style="margin:12px 0 6px;color:#fff;font-size:16px">Cambios realizados</h3>
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid rgba(255,255,255,.08);border-radius:8px;overflow:hidden">
-              <thead style="background:rgba(255,255,255,.04)">
-                <tr>
-                  <th style="text-align:left;padding:8px 12px">Campo</th>
-                  <th style="text-align:left;padding:8px 12px">Antes</th>
-                  <th style="text-align:right;padding:8px 12px">Después</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${changesTableRows}
-              </tbody>
-            </table>
-          `
-          : '';
-
-        const breakdownTable = `
-          <h3 style="margin:12px 0 6px;color:#fff;font-size:16px">Desglose de costos</h3>
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid rgba(255,255,255,.08);border-radius:8px;overflow:hidden">
-            <thead style="background:rgba(255,255,255,.04)">
-              <tr>
-                <th style="text-align:left;padding:8px 12px">Concepto</th>
-                <th style="text-align:right;padding:8px 12px">Importe</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td style="padding:8px 12px;color:#93c5fd">Base</td><td style="padding:8px 12px;text-align:right">${currency(base)}</td></tr>
-              ${seatChanged ? `<tr><td style=\"padding:8px 12px;color:#93c5fd\">Recargo por cambio (10%)</td><td style=\"padding:8px 12px;text-align:right\">+ ${currency(feeAdded)}</td></tr>` : ''}
-              ${Number(newFee) > 0 ? `<tr><td style=\"padding:8px 12px;color:#93c5fd\">Recargo acumulado</td><td style=\"padding:8px 12px;text-align:right\">${currency(newFee)}</td></tr>` : ''}
-              ${discount > 0 ? `<tr><td style=\"padding:8px 12px;color:#93c5fd\">Descuento VIP (10%)</td><td style=\"padding:8px 12px;text-align:right\">- ${currency(discount)}</td></tr>` : ''}
-              <tr><td style="padding:8px 12px;color:#93c5fd;font-weight:600">Total</td><td style="padding:8px 12px;text-align:right;font-weight:600">${currency(total)}</td></tr>
-            </tbody>
-          </table>
-        `;
-
-        const vipNote = discountAdded > 0
-          ? '<p style="margin:8px 0 0;color:#16a34a">Se aplicó tu descuento VIP por primera vez.</p>'
-          : (discount > 0 ? '<p style="margin:8px 0 0;color:#16a34a">Descuento VIP del 10% aplicado.</p>' : '');
-
-        const contentHtml = `
-          <h2 style="margin:0 0 8px;color:#fff">Tu reserva fue modificada</h2>
-          <p style="margin:0 0 8px">Hola <strong>${name || email}</strong>, estos son los cambios aplicados a tu reserva:</p>
-          ${changesTable}
-          ${breakdownTable}
-          ${vipNote}
-          <p style="margin:12px 0 0;color:#cbd5e1;font-size:12px">Si no solicitaste esta modificación, contáctanos de inmediato.</p>
-        `;
-
-        const html = renderTemplate({ title: 'Reserva modificada', intro: 'Hemos actualizado tu reserva.', contentHtml });
-        sendMail({ to: email, subject: '14FLY • Reserva modificada', html, text: `Tu reserva fue modificada. Total: ${currency(total)}.` })
+        const updatedEmail = buildReservationUpdatedEmail({
+          name,
+          email,
+          changesTableRows,
+          base,
+          seatChanged,
+          feeAdded,
+          newFee,
+          discount,
+          total,
+          discountAdded
+        });
+        sendMail({ to: email, subject: updatedEmail.subject, html: updatedEmail.html, text: updatedEmail.text })
           .catch(e => console.warn('Fallo al enviar correo de modificación:', e.message));
       }
     } catch (mailErr) {
@@ -599,31 +532,14 @@ export const cancelReservation = async (req, res) => {
     if (userEmail) {
       try {
         const appUrl = process.env.WEB_URL || process.env.APP_URL || process.env.FRONTEND_URL || '';
-        const cta = appUrl
-          ? `<p style="margin:16px 0 0"><a href="${appUrl}" style="display:inline-block;background:#f9b17a;color:#2d3250;text-decoration:none;font-weight:700;padding:10px 16px;border-radius:10px">Ver mis reservas</a></p>`
-          : '';
-        const contentHtml = `
-          <h2 style="margin:0 0 8px;color:#fff">Reserva cancelada</h2>
-          <p style="margin:0 0 8px">Se ha cancelado tu reserva del asiento <strong>${seatNumber}</strong>.</p>
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid rgba(255,255,255,.08);border-radius:8px;overflow:hidden;min-width:320px">
-            <thead style="background:rgba(255,255,255,.04)">
-              <tr>
-                <th style="text-align:left;padding:8px 12px">Campo</th>
-                <th style="text-align:right;padding:8px 12px">Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td style="padding:8px 12px;color:#93c5fd">Asiento</td><td style="padding:8px 12px;text-align:right">${seatNumber}</td></tr>
-              <tr><td style="padding:8px 12px;color:#93c5fd">Pasajero</td><td style="padding:8px 12px;text-align:right">${paxName || '—'}</td></tr>
-              <tr><td style="padding:8px 12px;color:#93c5fd">CUI</td><td style="padding:8px 12px;text-align:right">${paxCui || '—'}</td></tr>
-              ${reason ? `<tr><td style="padding:8px 12px;color:#93c5fd">Motivo</td><td style="padding:8px 12px;text-align:right">${reason}</td></tr>` : ''}
-            </tbody>
-          </table>
-          ${cta}
-          <p style="margin:12px 0 0;color:#cbd5e1;font-size:12px">Si no solicitaste esta cancelación, contáctanos de inmediato.</p>
-        `;
-        const html = renderTemplate({ title: 'Reserva cancelada', intro: 'Tu reserva ha sido cancelada.', contentHtml });
-        await sendMail({ to: userEmail, subject: '14FLY • Reserva cancelada', html, text: `Se canceló tu reserva del asiento ${seatNumber}. Pasajero: ${paxName}. CUI: ${paxCui}.` });
+        const cancelledEmail = buildReservationCancelledEmail({
+          seatNumber,
+          paxName,
+          paxCui,
+          reason,
+          appUrl
+        });
+        await sendMail({ to: userEmail, subject: cancelledEmail.subject, html: cancelledEmail.html, text: cancelledEmail.text });
       } catch (mailErr) {
         console.warn('Fallo al enviar correo de cancelación:', mailErr.message);
       }
@@ -685,39 +601,18 @@ export const cancelReservationByCUIAndSeat = async (req, res) => {
     if (row.email) {
       try {
         const appUrl = process.env.WEB_URL || process.env.APP_URL || process.env.FRONTEND_URL || '';
-        const cta = appUrl
-          ? `<p style="margin:16px 0 0"><a href="${appUrl}" style="display:inline-block;background:#f9b17a;color:#2d3250;text-decoration:none;font-weight:700;padding:10px 16px;border-radius:10px">Ver mis reservas</a></p>`
-          : '';
-        const contentHtml = `
-          <h2 style="margin:0 0 8px;color:#fff">Reserva cancelada</h2>
-          <p style="margin:0 0 8px">Hola <strong>${row.full_name}</strong>, tu reserva ha sido cancelada.</p>
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid rgba(255,255,255,.08);border-radius:8px;overflow:hidden;min-width:320px">
-            <thead style="background:rgba(255,255,255,.04)">
-              <tr>
-                <th style="text-align:left;padding:8px 12px">Campo</th>
-                <th style="text-align:right;padding:8px 12px">Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td style="padding:8px 12px;color:#93c5fd">Asiento</td><td style="padding:8px 12px;text-align:right">${row.seat_number}</td></tr>
-              <tr><td style="padding:8px 12px;color:#93c5fd">Pasajero</td><td style="padding:8px 12px;text-align:right">${row.full_name}</td></tr>
-              <tr><td style="padding:8px 12px;color:#93c5fd">CUI</td><td style="padding:8px 12px;text-align:right">${row.cui}</td></tr>
-              ${reason ? `<tr><td style="padding:8px 12px;color:#93c5fd">Motivo</td><td style="padding:8px 12px;text-align:right">${reason}</td></tr>` : ''}
-            </tbody>
-          </table>
-          ${cta}
-          <p style="margin:12px 0 0;color:#cbd5e1;font-size:12px">Si no solicitaste esta cancelación, contáctanos de inmediato.</p>
-        `;
-        const html = renderTemplate({
-          title: 'Reserva cancelada',
-          intro: 'Tu reserva ha sido cancelada.',
-          contentHtml
+        const cancelledEmail = buildReservationCancelledEmail({
+          seatNumber: row.seat_number,
+          paxName: row.full_name,
+          paxCui: row.cui,
+          reason,
+          appUrl
         });
         await sendMail({
           to: row.email,
-          subject: '14FLY • Reserva cancelada',
-          html,
-          text: `Se canceló tu reserva del asiento ${row.seat_number}. Pasajero: ${row.full_name}. CUI: ${row.cui}.`
+          subject: cancelledEmail.subject,
+          html: cancelledEmail.html,
+          text: cancelledEmail.text
         });
       } catch (mailErr) {
         console.warn('Fallo al enviar correo de cancelación:', mailErr.message);
@@ -758,7 +653,9 @@ export const cancelBatchReservations = async (req, res) => {
         batch_id, 
         count: 0, 
         already_cancelled: true, 
-        cancelled_at: new Date().toISOString() 
+        cancelled_at: new Date().toISOString(),
+        reservation_ids: [],
+        seat_numbers: []
       });
     }
     
@@ -801,32 +698,30 @@ export const cancelBatchReservations = async (req, res) => {
     }
 
     // Enviar correo si existe email (usar el primero)
-    const email = q.rows[0]?.email;
+    let email = q.rows[0]?.email;
+    if (!email) {
+      try {
+        const u = await pool.query("SELECT email FROM users WHERE user_id=$1", [uid]);
+        email = u.rows[0]?.email || null;
+      } catch (e) {
+        console.warn('[CANCEL-BATCH] Failed to resolve user email:', e.message);
+      }
+    }
     if (email) {
       try {
         const appUrl = process.env.WEB_URL || process.env.APP_URL || process.env.FRONTEND_URL || '';
-        const cta = appUrl
-          ? `<p style="margin:16px 0 0"><a href="${appUrl}" style="display:inline-block;background:#f9b17a;color:#2d3250;text-decoration:none;font-weight:700;padding:10px 16px;border-radius:10px">Ver mis reservas</a></p>`
-          : '';
         const seatsList = q.rows.map(r => r.seat_number).join(', ');
-        const contentHtml = `
-          <h2 style="margin:0 0 8px;color:#fff">Reservas canceladas</h2>
-          <p style="margin:0 0 8px">Se han cancelado <strong>${reservationIds.length}</strong> reserva(s).</p>
-          <p style="margin:0 0 8px"><strong>Asientos:</strong> ${seatsList}</p>
-          ${reason ? `<p style="margin:0 0 8px"><strong>Motivo:</strong> ${reason}</p>` : ''}
-          ${cta}
-          <p style="margin:12px 0 0;color:#cbd5e1;font-size:12px">Si no solicitaste estas cancelaciones, contáctanos de inmediato.</p>
-        `;
-        const html = renderTemplate({
-          title: 'Reservas canceladas',
-          intro: 'Se ha cancelado un conjunto de reservas.',
-          contentHtml
+        const batchEmail = buildBatchCancelledEmail({
+          reservationCount: reservationIds.length,
+          seatsList,
+          reason,
+          appUrl
         });
         await sendMail({
           to: email,
-          subject: '14FLY • Reservas canceladas',
-          html,
-          text: `Se han cancelado ${reservationIds.length} reservas. Asientos: ${seatsList}`
+          subject: batchEmail.subject,
+          html: batchEmail.html,
+          text: batchEmail.text
         });
       } catch (e) {
         console.warn('[CANCEL-BATCH] Failed to send email:', e.message);
@@ -834,11 +729,14 @@ export const cancelBatchReservations = async (req, res) => {
     }
     
     console.log(`[CANCEL-BATCH] Successfully cancelled batch ${batch_id} (${cancelledCount} reservations)`);
+    const seatNumbers = q.rows.map(r => r.seat_number);
     return ok(res, "Conjunto cancelado exitosamente", { 
       batch_id, 
       count: cancelledCount, 
       already_cancelled: false,
-      cancelled_at: new Date().toISOString() 
+      cancelled_at: new Date().toISOString(),
+      reservation_ids: reservationIds,
+      seat_numbers: seatNumbers
     });
   } catch (err) {
     console.error('[CANCEL-BATCH] Error:', err.message, err.stack);
