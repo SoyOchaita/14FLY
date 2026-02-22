@@ -18,9 +18,9 @@
   </div>
 
   <!-- Sección Activas -->
-  <div *ngIf="activeTab === 'activas'" class="space-y-6" [class.hidden]="!grupos.length">
-    <div *ngIf="grupos.length; else emptyActivas">
-    <div class="neo-card p-4 sm:p-5 border" *ngFor="let g of grupos; let gi = index">
+  <div *ngIf="activeTab === 'activas'">
+    <div *ngIf="grupos.length; else emptyActivas" class="space-y-5">
+    <div class="neo-card p-4 sm:p-5 border mb-5" *ngFor="let g of grupos; let gi = index">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
         <div>
           <div class="text-white font-semibold flex items-center gap-2">Conjunto
@@ -79,7 +79,7 @@
           </div>
         </div>
       </div>
-      <div class="flex justify-end mt-3">
+      <div class="flex justify-end mt-4 pt-3 border-t border-white/5">
         <button *ngIf="!g.is_single" class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg bg-red-600 text-white hover:bg-red-700" (click)="openCancelBatch(g)">Cancelar conjunto</button>
       </div>
     </div>

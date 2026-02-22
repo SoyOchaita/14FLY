@@ -50,6 +50,10 @@ export class AdminReportComponent implements OnInit {
   }
   colOrderFor(cls: 'Negocios' | 'Económica'): number[] { return cls === 'Negocios' ? [1,2] : [3,4,5,6,7]; }
   rowGroupsFor(cls: 'Negocios' | 'Económica'): string[][] { return cls === 'Negocios' ? [['I','G'],['F','D'],['C','A']] : [['I','H','G'],['F','E','D'],['C','B','A']]; }
+  isAisleAfter(col: number, cls: 'Negocios' | 'Económica'): boolean {
+    if (cls === 'Negocios') return col === 1;
+    return col === 4;
+  }
   getSeat(cls: 'Negocios' | 'Económica', row: string, col: number): { code: string; available: boolean } | null {
     const code = `${row}${col}`;
     const s = this.seatIndex.get(code);

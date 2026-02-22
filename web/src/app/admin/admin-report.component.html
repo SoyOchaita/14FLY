@@ -1,128 +1,253 @@
-<section class="p-6">
-  <h2 class="text-2xl font-semibold text-white mb-4">Panel de reportes</h2>
+<section class="p-4 sm:p-6 max-w-7xl mx-auto">
+  <!-- Header mejorado -->
+  <div class="mb-6 sm:mb-8">
+    <div class="flex items-center gap-3 mb-2">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-softblue">
+        <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75zM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 01-1.875-1.875V8.625zM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 013 19.875v-6.75z" />
+      </svg>
+      <h2 class="text-2xl sm:text-3xl font-bold text-white">Panel de Reportes</h2>
+    </div>
+    <p class="text-softblue/70 text-sm">Vista general del estado actual del sistema</p>
+  </div>
 
-  <div *ngIf="loading" class="text-softblue">Cargando…</div>
-  <div *ngIf="!loading && error" class="text-red-400">{{ error }}</div>
+  <div *ngIf="loading" class="flex items-center justify-center py-12">
+    <div class="text-softblue flex items-center gap-2">
+      <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      Cargando datos...
+    </div>
+  </div>
+  <div *ngIf="!loading && error" class="neo-card p-4 border-red-400/30 bg-red-500/10">
+    <div class="flex items-center gap-2 text-red-400">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+      </svg>
+      {{ error }}
+    </div>
+  </div>
 
   <ng-container *ngIf="!loading && data as d">
-    <!-- Tarjetas resumen -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      <div class="neo-card p-4">
-        <div class="text-softblue/70">Usuarios creados</div>
-        <div class="text-2xl font-bold text-white">{{ d.users_total }}</div>
-      </div>
-      <div class="neo-card p-4">
-        <div class="text-softblue/70">Reservas totales</div>
-        <div class="text-2xl font-bold text-white">{{ d.reservations_total }}</div>
-      </div>
-      <div class="neo-card p-4">
-        <div class="text-softblue/70">Modificadas</div>
-        <div class="text-2xl font-bold text-white">{{ d.modified }}</div>
-      </div>
-      <div class="neo-card p-4">
-        <div class="text-softblue/70">Canceladas</div>
-        <div class="text-2xl font-bold text-white">{{ d.cancelled }}</div>
-      </div>
-      <div class="neo-card p-4">
-        <div class="text-softblue/70">Seleccionadas por usuario</div>
-        <div class="text-2xl font-bold text-white">{{ d.selections.manual }}</div>
-      </div>
-      <div class="neo-card p-4">
-        <div class="text-softblue/70">Seleccionadas aleatorio</div>
-        <div class="text-2xl font-bold text-white">{{ d.selections.random }}</div>
-      </div>
-    </div>
-
-    <!-- Ocupación por clase -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-      <div class="neo-card p-4">
-        <div class="flex items-center justify-between">
-          <div class="text-softblue/80">Negocios</div>
-          <div class="text-softblue/70 text-sm">{{ ratioBusyBusiness() }}</div>
-        </div>
-        <div class="mt-2 flex items-center gap-2 text-sm">
-          <span class="px-2 py-1 rounded bg-red-500/10 border border-red-400/30 text-red-300">Ocupados: {{ d.seats.business.occupied }}</span>
-          <span class="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-400/30 text-emerald-300">Libres: {{ d.seats.business.free }}</span>
-        </div>
-        <div class="mt-3">
-          <div class="flex items-center gap-2 pl-6 mb-1">
-            <div class="w-5"></div>
-            <div *ngFor="let c of colOrderFor('Negocios')" class="w-10 text-center text-softblue font-mono">{{ c }}</div>
+    <!-- Tarjetas resumen mejoradas -->
+    <div class="mb-6 sm:mb-8">
+      <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <div class="w-1 h-5 bg-softblue rounded-full"></div>
+        Estadísticas Generales
+      </h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <div class="neo-card p-4 sm:p-5 hover:border-softblue/30 transition-colors">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-softblue/70 text-sm font-medium">Usuarios Creados</div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-softblue/40">
+              <path d="M4.5 6.375a4.125 4.125 0 118.25 0 4.125 4.125 0 01-8.25 0zM14.25 8.625a3.375 3.375 0 116.75 0 3.375 3.375 0 01-6.75 0zM1.5 19.125a7.125 7.125 0 0114.25 0v.003l-.001.119a.75.75 0 01-.363.63 13.067 13.067 0 01-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 01-.364-.63l-.001-.122zM17.25 19.128l-.001.144a2.25 2.25 0 01-.233.96 10.088 10.088 0 005.06-1.01.75.75 0 00.42-.643 4.875 4.875 0 00-6.957-4.611 8.586 8.586 0 011.71 5.157v.003z" />
+            </svg>
           </div>
-          <div class="space-y-1">
-            <div *ngFor="let group of rowGroupsFor('Negocios'); let gi = index" [class.mt-2]="gi>0" class="space-y-1">
-              <div *ngFor="let r of group" class="flex items-center gap-2">
-                <div class="w-5 text-softblue">{{ r }}</div>
-                <ng-container *ngFor="let c of colOrderFor('Negocios')">
-                  <ng-container *ngIf="getSeat('Negocios', r, c) as seat; else emptyCellB">
-                    <div [ngClass]="{ 'bg-green-400': seat.available, 'bg-red-500': !seat.available }" class="w-10 h-10 rounded-lg text-center text-white font-semibold select-none flex items-center justify-center font-mono">{{ seat.code }}</div>
-                  </ng-container>
-                </ng-container>
-              </div>
-            </div>
-          </div>
-          <ng-template #emptyCellB><div class="w-10 h-10 rounded-lg opacity-30 border border-white/10"></div></ng-template>
+          <div class="text-3xl font-bold text-white">{{ d.users_total }}</div>
         </div>
-      </div>
-      <div class="neo-card p-4">
-        <div class="flex items-center justify-between">
-          <div class="text-softblue/80">Económica</div>
-          <div class="text-softblue/70 text-sm">{{ ratioBusyEconomy() }}</div>
-        </div>
-        <div class="mt-2 flex items-center gap-2 text-sm">
-          <span class="px-2 py-1 rounded bg-red-500/10 border border-red-400/30 text-red-300">Ocupados: {{ d.seats.economy.occupied }}</span>
-          <span class="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-400/30 text-emerald-300">Libres: {{ d.seats.economy.free }}</span>
-        </div>
-        <div class="mt-3">
-          <div class="flex items-center gap-2 pl-6 mb-1">
-            <div class="w-5"></div>
-            <div *ngFor="let c of colOrderFor('Económica')" class="w-10 text-center text-softblue font-mono">{{ c }}</div>
+        <div class="neo-card p-4 sm:p-5 hover:border-softblue/30 transition-colors">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-softblue/70 text-sm font-medium">Reservas Totales</div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-softblue/40">
+              <path fill-rule="evenodd" d="M1.5 6.375c0-1.036.84-1.875 1.875-1.875h17.25c1.035 0 1.875.84 1.875 1.875v3.026a.75.75 0 01-.375.65 2.249 2.249 0 000 3.898.75.75 0 01.375.65v3.026c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625v-3.026a.75.75 0 01.374-.65 2.249 2.249 0 000-3.898.75.75 0 01-.374-.65V6.375zm15-1.125a.75.75 0 01.75.75v.75a.75.75 0 01-1.5 0V6a.75.75 0 01.75-.75zm.75 4.5a.75.75 0 00-1.5 0v.75a.75.75 0 001.5 0v-.75zm-.75 3a.75.75 0 01.75.75v.75a.75.75 0 01-1.5 0v-.75a.75.75 0 01.75-.75zm.75 4.5a.75.75 0 00-1.5 0V18a.75.75 0 001.5 0v-.75zM6 12a.75.75 0 01.75-.75H12a.75.75 0 010 1.5H6.75A.75.75 0 016 12zm.75 2.25a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z" clip-rule="evenodd" />
+            </svg>
           </div>
-          <div class="space-y-1">
-            <div *ngFor="let group of rowGroupsFor('Económica'); let gi = index" [class.mt-2]="gi>0" class="space-y-1">
-              <div *ngFor="let r of group" class="flex items-center gap-2">
-                <div class="w-5 text-softblue">{{ r }}</div>
-                <ng-container *ngFor="let c of colOrderFor('Económica')">
-                  <ng-container *ngIf="getSeat('Económica', r, c) as seat; else emptyCellE">
-                    <div [ngClass]="{ 'bg-green-400': seat.available, 'bg-red-500': !seat.available }" class="w-10 h-10 rounded-lg text-center text-white font-semibold select-none flex items-center justify-center font-mono">{{ seat.code }}</div>
-                  </ng-container>
-                </ng-container>
-              </div>
-            </div>
+          <div class="text-3xl font-bold text-white">{{ d.reservations_total }}</div>
+        </div>
+        <div class="neo-card p-4 sm:p-5 hover:border-softblue/30 transition-colors">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-softblue/70 text-sm font-medium">Modificadas</div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-yellow-400/60">
+              <path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32l8.4-8.4z" />
+              <path d="M5.25 5.25a3 3 0 00-3 3v10.5a3 3 0 003 3h10.5a3 3 0 003-3V13.5a.75.75 0 00-1.5 0v5.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5V8.25a1.5 1.5 0 011.5-1.5h5.25a.75.75 0 000-1.5H5.25z" />
+            </svg>
           </div>
-          <ng-template #emptyCellE><div class="w-10 h-10 rounded-lg opacity-30 border border-white/10"></div></ng-template>
+          <div class="text-3xl font-bold text-white">{{ d.modified }}</div>
+        </div>
+        <div class="neo-card p-4 sm:p-5 hover:border-softblue/30 transition-colors">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-softblue/70 text-sm font-medium">Canceladas</div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-red-400/60">
+              <path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-1.72 6.97a.75.75 0 10-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 101.06 1.06L12 13.06l1.72 1.72a.75.75 0 101.06-1.06L13.06 12l1.72-1.72a.75.75 0 10-1.06-1.06L12 10.94l-1.72-1.72z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="text-3xl font-bold text-white">{{ d.cancelled }}</div>
+        </div>
+        <div class="neo-card p-4 sm:p-5 hover:border-softblue/30 transition-colors">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-softblue/70 text-sm font-medium">Selec. Manual</div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-emerald-400/60">
+              <path d="M10.5 1.875a1.125 1.125 0 012.25 0v8.219c.517.162 1.02.382 1.5.659V3.375a1.125 1.125 0 012.25 0v10.937a4.505 4.505 0 00-3.25 2.373 8.963 8.963 0 014-.935A.75.75 0 0018 15v-2.266a3.368 3.368 0 01.988-2.37 1.125 1.125 0 011.591 1.59 1.118 1.118 0 00-.329.79v3.006h-.005a6 6 0 01-1.752 4.007l-1.736 1.736a6 6 0 01-4.242 1.757H10.5a7.5 7.5 0 01-7.5-7.5V6.375a1.125 1.125 0 012.25 0v5.519c.46-.452.965-.832 1.5-1.141V3.375a1.125 1.125 0 012.25 0v6.526c.495-.1.997-.151 1.5-.151V1.875z" />
+            </svg>
+          </div>
+          <div class="text-3xl font-bold text-white">{{ d.selections.manual }}</div>
+        </div>
+        <div class="neo-card p-4 sm:p-5 hover:border-softblue/30 transition-colors">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-softblue/70 text-sm font-medium">Selec. Aleatorio</div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-purple-400/60">
+              <path fill-rule="evenodd" d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262l10.5-11.25a.75.75 0 01.913-.143z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="text-3xl font-bold text-white">{{ d.selections.random }}</div>
         </div>
       </div>
     </div>
 
-    <!-- Por usuario -->
-    <div class="neo-card p-4">
-      <div class="text-softblue/80 font-semibold mb-3">Usuarios y actividad</div>
-      <div class="overflow-auto">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="text-softblue/70">
-              <th class="text-left p-2">Usuario</th>
-              <th class="text-left p-2">Email</th>
-              <th class="text-right p-2">Reservas</th>
-              <th class="text-right p-2">Modificadas</th>
-              <th class="text-right p-2">Canceladas</th>
-              <th class="text-right p-2">Manual</th>
-              <th class="text-right p-2">Aleatorio</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let u of d.per_user" class="border-t border-white/10 text-white">
-              <td class="p-2">{{ u.full_name || '—' }}</td>
-              <td class="p-2">{{ u.email }}</td>
-              <td class="p-2 text-right">{{ u.reservations_total }}</td>
-              <td class="p-2 text-right">{{ u.modified }}</td>
-              <td class="p-2 text-right">{{ u.cancelled }}</td>
-              <td class="p-2 text-right">{{ u.created_manual }}</td>
-              <td class="p-2 text-right">{{ u.created_random }}</td>
-            </tr>
-          </tbody>
-        </table>
+    <!-- Sección de ocupación por clase - Mejorada -->
+    <div class="mb-6 sm:mb-8">
+      <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <div class="w-1 h-5 bg-softblue rounded-full"></div>
+        Ocupación de Asientos
+      </h3>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <!-- Clase Negocios -->
+        <div class="neo-card p-4 sm:p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-softblue">
+                <path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM9.763 9.51a2.25 2.25 0 013.828-1.351.75.75 0 001.06-1.06 3.75 3.75 0 00-6.38 2.252c-.033.307 0 .595.09.837l.548 1.474c.123.332.298.826.454 1.27.05.144.097.278.137.395.013.039.021.06.024.07l.006.015.002.006.001.002a.75.75 0 001.294-.554l-.006-.015a4.574 4.574 0 01-.06-.187 19.03 19.03 0 01-.384-1.065l-.547-1.474a1.202 1.202 0 01-.066-.634.75.75 0 000-.037zm7.5 5.006a.75.75 0 00-1.5 0v1.5h-1.5a.75.75 0 000 1.5h1.5v1.5a.75.75 0 001.5 0v-1.5h1.5a.75.75 0 000-1.5h-1.5v-1.5z" clip-rule="evenodd" />
+              </svg>
+              <div class="text-white font-semibold">Clase Negocios</div>
+            </div>
+            <div class="px-3 py-1 rounded-full bg-softblue/10 border border-softblue/30 text-softblue text-sm font-mono">{{ ratioBusyBusiness() }}</div>
+          </div>
+          <div class="flex items-center gap-2 mb-4 flex-wrap">
+            <span class="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-400/30 text-red-300 text-sm font-medium">
+              <span class="text-red-400 font-bold">{{ d.seats.business.occupied }}</span> Ocupados
+            </span>
+            <span class="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 text-sm font-medium">
+              <span class="text-emerald-400 font-bold">{{ d.seats.business.free }}</span> Libres
+            </span>
+          </div>
+          <div class="overflow-x-auto">
+            <div class="inline-block min-w-full">
+              <!-- Encabezado de columnas con espaciador de pasillo -->
+              <div class="flex items-center mb-2">
+                <div class="w-5"></div>
+                <div class="flex items-center gap-2">
+                  <ng-container *ngFor="let c of colOrderFor('Negocios')">
+                    <div class="w-10 text-center text-softblue font-mono text-sm">{{ c }}</div>
+                    <div *ngIf="isAisleAfter(c, 'Negocios')" class="w-4 text-center text-softblue/40 text-xs">|</div>
+                  </ng-container>
+                </div>
+              </div>
+              <!-- Grupos de filas -->
+              <div class="space-y-1">
+                <div *ngFor="let group of rowGroupsFor('Negocios'); let gi = index" [class.mt-3]="gi>0" class="space-y-1">
+                  <div *ngFor="let r of group" class="flex items-center">
+                    <div class="w-5 text-softblue text-sm font-medium">{{ r }}</div>
+                    <div class="flex items-center gap-2">
+                      <ng-container *ngFor="let c of colOrderFor('Negocios')">
+                        <ng-container *ngIf="getSeat('Negocios', r, c) as seat; else emptyCellB">
+                          <div [ngClass]="{ 'bg-green-400 hover:bg-green-500': seat.available, 'bg-red-500': !seat.available }" class="w-10 h-10 rounded-lg text-center text-white font-semibold select-none flex items-center justify-center font-mono text-sm transition-colors shadow-sm">{{ seat.code }}</div>
+                        </ng-container>
+                        <ng-template #emptyCellB><div class="w-10 h-10 rounded-lg opacity-30 border border-white/10"></div></ng-template>
+                        <div *ngIf="isAisleAfter(c, 'Negocios')" class="w-4"></div>
+                      </ng-container>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Clase Económica -->
+        <div class="neo-card p-4 sm:p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-softblue">
+                <path d="M11.584 2.376a.75.75 0 01.832 0l9 6a.75.75 0 11-.832 1.248L12 3.901 3.416 9.624a.75.75 0 01-.832-1.248l9-6z" />
+                <path fill-rule="evenodd" d="M20.25 10.332v9.918H21a.75.75 0 010 1.5H3a.75.75 0 010-1.5h.75v-9.918a.75.75 0 01.634-.74A49.109 49.109 0 0112 9c2.59 0 5.134.202 7.616.592a.75.75 0 01.634.74zm-7.5 2.418a.75.75 0 00-1.5 0v6.75a.75.75 0 001.5 0v-6.75zm3-.75a.75.75 0 01.75.75v6.75a.75.75 0 01-1.5 0v-6.75a.75.75 0 01.75-.75zM9 12.75a.75.75 0 00-1.5 0v6.75a.75.75 0 001.5 0v-6.75z" clip-rule="evenodd" />
+              </svg>
+              <div class="text-white font-semibold">Clase Económica</div>
+            </div>
+            <div class="px-3 py-1 rounded-full bg-softblue/10 border border-softblue/30 text-softblue text-sm font-mono">{{ ratioBusyEconomy() }}</div>
+          </div>
+          <div class="flex items-center gap-2 mb-4 flex-wrap">
+            <span class="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-400/30 text-red-300 text-sm font-medium">
+              <span class="text-red-400 font-bold">{{ d.seats.economy.occupied }}</span> Ocupados
+            </span>
+            <span class="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 text-sm font-medium">
+              <span class="text-emerald-400 font-bold">{{ d.seats.economy.free }}</span> Libres
+            </span>
+          </div>
+          <div class="overflow-x-auto">
+            <div class="inline-block min-w-full">
+              <!-- Encabezado de columnas con espaciador de pasillo -->
+              <div class="flex items-center mb-2">
+                <div class="w-5"></div>
+                <div class="flex items-center gap-2">
+                  <ng-container *ngFor="let c of colOrderFor('Económica')">
+                    <div class="w-10 text-center text-softblue font-mono text-sm">{{ c }}</div>
+                    <div *ngIf="isAisleAfter(c, 'Económica')" class="w-4 text-center text-softblue/40 text-xs">|</div>
+                  </ng-container>
+                </div>
+              </div>
+              <!-- Grupos de filas -->
+              <div class="space-y-1">
+                <div *ngFor="let group of rowGroupsFor('Económica'); let gi = index" [class.mt-3]="gi>0" class="space-y-1">
+                  <div *ngFor="let r of group" class="flex items-center">
+                    <div class="w-5 text-softblue text-sm font-medium">{{ r }}</div>
+                    <div class="flex items-center gap-2">
+                      <ng-container *ngFor="let c of colOrderFor('Económica')">
+                        <ng-container *ngIf="getSeat('Económica', r, c) as seat; else emptyCellE">
+                          <div [ngClass]="{ 'bg-green-400 hover:bg-green-500': seat.available, 'bg-red-500': !seat.available }" class="w-10 h-10 rounded-lg text-center text-white font-semibold select-none flex items-center justify-center font-mono text-sm transition-colors shadow-sm">{{ seat.code }}</div>
+                        </ng-container>
+                        <ng-template #emptyCellE><div class="w-10 h-10 rounded-lg opacity-30 border border-white/10"></div></ng-template>
+                        <div *ngIf="isAisleAfter(c, 'Económica')" class="w-4"></div>
+                      </ng-container>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla de usuarios y actividad - Mejorada -->
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <div class="w-1 h-5 bg-softblue rounded-full"></div>
+        Actividad por Usuario
+      </h3>
+      <div class="neo-card p-0 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-white/5 border-b border-white/10">
+              <tr class="text-softblue/80">
+                <th class="text-left p-3 sm:p-4 font-semibold">Usuario</th>
+                <th class="text-left p-3 sm:p-4 font-semibold">Email</th>
+                <th class="text-right p-3 sm:p-4 font-semibold">Reservas</th>
+                <th class="text-right p-3 sm:p-4 font-semibold">Modificadas</th>
+                <th class="text-right p-3 sm:p-4 font-semibold">Canceladas</th>
+                <th class="text-right p-3 sm:p-4 font-semibold">Manual</th>
+                <th class="text-right p-3 sm:p-4 font-semibold">Aleatorio</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/10">
+              <tr *ngFor="let u of d.per_user; let i = index" [class]="i % 2 === 0 ? 'text-white hover:bg-white/5 transition-colors bg-white/5' : 'text-white hover:bg-white/5 transition-colors'">
+                <td class="p-3 sm:p-4">
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-softblue/20 flex items-center justify-center text-softblue font-semibold text-xs">
+                      {{ ((u.full_name || u.email)[0] || '?').toUpperCase() }}
+                    </div>
+                    <span class="font-medium">{{ u.full_name || '—' }}</span>
+                  </div>
+                </td>
+                <td class="p-3 sm:p-4 text-softblue/80">{{ u.email }}</td>
+                <td class="p-3 sm:p-4 text-right font-mono">{{ u.reservations_total }}</td>
+                <td class="p-3 sm:p-4 text-right font-mono text-yellow-400">{{ u.modified }}</td>
+                <td class="p-3 sm:p-4 text-right font-mono text-red-400">{{ u.cancelled }}</td>
+                <td class="p-3 sm:p-4 text-right font-mono text-emerald-400">{{ u.created_manual }}</td>
+                <td class="p-3 sm:p-4 text-right font-mono text-purple-400">{{ u.created_random }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </ng-container>
