@@ -1,128 +1,225 @@
 <section class="p-4 sm:p-6">
   <h1 class="text-xl sm:text-2xl font-semibold text-white mb-4">Mis reservas</h1>
 
-  <div class="neo-card p-2 sm:p-3 mb-4 flex gap-2">
-    <button type="button"
-      class="flex-1 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition"
-      [ngClass]="activeTab === 'activas' ? 'bg-softblue text-dark' : 'text-softblue hover:bg-white/10'"
-      (click)="changeTab('activas')">
-      Activas ({{ grupos.length }})
+  <!-- Tabs -->
+  <div class="flex gap-2 mb-4">
+    <button 
+      (click)="changeTab('activas')" 
+      [ngClass]="activeTab === 'activas' ? 'bg-softblue text-dark' : 'bg-white/10 text-softblue hover:bg-white/20'"
+      class="px-4 py-2 rounded-lg text-sm font-medium transition">
+      Activas
     </button>
-    <button type="button"
-      class="flex-1 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition"
-      [ngClass]="activeTab === 'canceladas' ? 'bg-softblue text-dark' : 'text-softblue hover:bg-white/10'"
-      (click)="changeTab('canceladas')">
-      Canceladas ({{ totalItems }})
+    <button 
+      (click)="changeTab('canceladas')" 
+      [ngClass]="activeTab === 'canceladas' ? 'bg-softblue text-dark' : 'bg-white/10 text-softblue hover:bg-white/20'"
+      class="px-4 py-2 rounded-lg text-sm font-medium transition">
+      Canceladas
     </button>
   </div>
 
-  <!-- Tab: Activas -->
-  <div class="space-y-6" *ngIf="activeTab === 'activas'">
+  <!-- Sección Activas -->
+  <div *ngIf="activeTab === 'activas'" class="space-y-6" [class.hidden]="!grupos.length">
     <div *ngIf="grupos.length; else emptyActivas">
-      <div class="neo-card p-4 sm:p-5 border" *ngFor="let g of grupos; let gi = index">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-          <div>
-            <div class="text-white font-semibold flex items-center gap-2">Conjunto
-              <span class="text-xs px-2 py-0.5 rounded bg-white/10 text-softblue">#{{ gi+1 }}</span>
+    <div class="neo-card p-4 sm:p-5 border" *ngFor="let g of grupos; let gi = index">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+        <div>
+          <div class="text-white font-semibold flex items-center gap-2">Conjunto
+            <span class="text-xs px-2 py-0.5 rounded bg-white/10 text-softblue">#{{ gi+1 }}</span>
+          </div>
+          <div class="text-softblue/80 text-xs sm:text-sm">{{ g.created_at | date:'medium' }} · {{ g.count }} reserva(s)</div>
+        </div>
+        <div class="text-left sm:text-right">
+          <div class="text-xs sm:text-sm text-softblue/80">
+            Clase:
+            <span class="text-white font-medium" *ngIf="g.classes.length===1">{{ g.classes[0] }}</span>
+            <span class="text-white font-medium" *ngIf="g.classes.length>1">Varias ({{ g.classes.join(' / ') }})</span>
+            <span class="text-white font-medium" *ngIf="!g.classes.length">—</span>
+          </div>
+          <div class="text-softblue/80 text-xs mt-1">Base del conjunto: <span class="text-white font-semibold">Q {{ g.sum_base | number:'1.0-0' }}</span></div>
+          <div class="text-white font-semibold text-sm">Total del conjunto: <span class="text-emerald-400">Q {{ g.sum_total | number:'1.0-0' }}</span></div>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+        <div class="p-4 rounded-lg bg-white/5 border border-white/10 transition" [ngClass]="{ 'ring-2 ring-softblue': highlightId===r.reservation_id }" *ngFor="let r of g.items; let i = index">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-1">
+            <span class="text-white font-semibold flex items-center gap-2 text-sm sm:text-base">Reserva #{{ i+1 }} · Asiento {{ r.seat_code }}</span>
+            <div class="flex items-center gap-2 sm:gap-3">
+              <span class="text-emerald-400 font-semibold text-sm" *ngIf="r.total as t">Q {{ t | number:'1.0-0' }}</span>
+              <span class="text-xs text-softblue/70">{{ r.created_at | date:'short' }}</span>
             </div>
-            <div class="text-softblue/80 text-xs sm:text-sm">{{ g.created_at | date:'medium' }} · {{ g.count }} reserva(s)</div>
+          </div>
+          <div class="text-softblue text-xs sm:text-sm">Pasajero: <span class="text-white">{{ r.full_name }}</span></div>
+          <div class="text-softblue text-xs sm:text-sm flex items-center gap-2 flex-wrap">Clase: <span class="text-white">{{ r.seat_class }}</span>
+            <span *ngIf="r.selection_mode === 'random'" class="px-2 py-0.5 rounded bg-white/10 text-softblue border border-white/10 text-[10px] uppercase tracking-wide">Aleatorio</span>
+          </div>
+          <div class="text-softblue text-xs sm:text-sm mb-3 flex items-center flex-wrap gap-2">CUI:
+            <span class="text-white flex items-center gap-1">
+              {{ r.cui }}
+              <!-- Heroicon clipboard -->
+              <button type="button" (click)="copy(r.cui)" class="p-1 rounded hover:bg-white/10" title="Copiar CUI">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 sm:w-5 sm:h-5 text-softblue">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 2.25h6a2.25 2.25 0 012.25 2.25v1.5M9 2.25A2.25 2.25 0 006.75 4.5v1.5M9 2.25h6M6.75 6h10.5m-12 3.75A2.25 2.25 0 017.5 7.5h9a2.25 2.25 0 012.25 2.25v9A2.25 2.25 0 0116.5 21H7.5a2.25 2.25 0 01-2.25-2.25v-9z" />
+                </svg>
+              </button>
+            </span>
+            · Asiento:
+            <span class="text-white flex items-center gap-1">
+              {{ r.seat_code }}
+              <button type="button" (click)="copy(r.seat_code)" class="p-1 rounded hover:bg-white/10" title="Copiar asiento">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 sm:w-5 sm:h-5 text-softblue">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 2.25h6a2.25 2.25 0 012.25 2.25v1.5M9 2.25A2.25 2.25 0 006.75 4.5v1.5M9 2.25h6M6.75 6h10.5m-12 3.75A2.25 2.25 0 017.5 7.5h9a2.25 2.25 0 012.25 2.25v9A2.25 2.25 0 0116.5 21H7.5a2.25 2.25 0 01-2.25-2.25v-9z" />
+                </svg>
+              </button>
+            </span>
+            · Maleta: <span class="text-white">{{ r.has_bag ? 'Sí' : 'No' }}</span>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2 justify-end">
+            <button class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg bg-softblue text-dark hover:opacity-90" (click)="openEdit(r)">Modificar</button>
+            <button class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg bg-red-500 text-white hover:bg-red-600" (click)="openCancel(r)">Cancelar</button>
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end mt-3">
+        <button *ngIf="!g.is_single" class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg bg-red-600 text-white hover:bg-red-700" (click)="openCancelBatch(g)">Cancelar conjunto</button>
+      </div>
+    </div>
+  </div>
+  <ng-template #emptyActivas>
+    <div class="neo-card p-4 sm:p-6 text-softblue text-sm">Aún no tienes reservas activas.</div>
+  </ng-template>
+  </div>
+
+  <!-- Sección Canceladas -->
+  <div *ngIf="activeTab === 'canceladas'">
+    <!-- Resumen estadístico -->
+    <div *ngIf="cancelacionesStats && cancelacionesStats.total_cancellations > 0" class="neo-card p-4 sm:p-5 border border-white/10 mb-4">
+      <div class="text-white font-semibold mb-3 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-softblue">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+        </svg>
+        Resumen de cancelaciones
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="neo-card bg-white/5 p-3 rounded-lg">
+          <div class="text-xs text-softblue/70 mb-1">Total canceladas</div>
+          <div class="text-2xl font-bold text-white">{{ cancelacionesStats.total_cancellations || 0 }}</div>
+        </div>
+        <div class="neo-card bg-white/5 p-3 rounded-lg">
+          <div class="text-xs text-softblue/70 mb-1">Monto total</div>
+          <div class="text-lg font-bold text-red-400">{{ formatCurrency(cancelacionesStats.total_amount_cancelled || 0) }}</div>
+        </div>
+        <div class="neo-card bg-white/5 p-3 rounded-lg">
+          <div class="text-xs text-softblue/70 mb-1">Promedio</div>
+          <div class="text-lg font-bold text-amber-400">{{ formatCurrency(cancelacionesStats.average_amount || 0) }}</div>
+        </div>
+        <div class="neo-card bg-white/5 p-3 rounded-lg">
+          <div class="text-xs text-softblue/70 mb-1">Última cancelación</div>
+          <div class="text-sm font-semibold text-white">{{ cancelacionesStats.last_cancellation ? (cancelacionesStats.last_cancellation | date:'short') : 'N/A' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="cancelaciones.length; else emptyCanceladas" class="space-y-4">
+      <div *ngFor="let c of cancelaciones" class="neo-card p-4 sm:p-5 border border-red-500/20">
+        <!-- Header con asiento y clase -->
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+          <div>
+            <div class="text-white font-semibold text-lg flex items-center gap-2 flex-wrap">
+              <span>Asiento {{ c.seat_code }}</span>
+              <span class="text-xs px-2 py-1 rounded-lg bg-red-500/20 text-red-300 border border-red-500/30">Cancelada</span>
+              <span class="text-xs px-2 py-1 rounded bg-white/10 text-softblue">{{ c.seat_class }}</span>
+              <span *ngIf="c.selection_mode === 'random'" class="px-2 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] uppercase tracking-wide">Aleatorio</span>
+            </div>
+            <div class="text-softblue/70 text-xs mt-1">
+              Cancelada: {{ formatDate(c.cancelled_at) }}
+            </div>
           </div>
           <div class="text-left sm:text-right">
-            <div class="text-xs sm:text-sm text-softblue/80">
-              Clase:
-              <span class="text-white font-medium" *ngIf="g.classes.length===1">{{ g.classes[0] }}</span>
-              <span class="text-white font-medium" *ngIf="g.classes.length>1">Varias ({{ g.classes.join(' / ') }})</span>
-              <span class="text-white font-medium" *ngIf="!g.classes.length">—</span>
-            </div>
-            <div class="text-softblue/80 text-xs mt-1">Base del conjunto: <span class="text-white font-semibold">Q {{ g.sum_base | number:'1.0-0' }}</span></div>
-            <div class="text-white font-semibold text-sm">Total del conjunto: <span class="text-emerald-400">Q {{ g.sum_total | number:'1.0-0' }}</span></div>
+            <div class="text-2xl font-bold text-red-400">{{ formatCurrency(c.total) }}</div>
+            <div class="text-xs text-softblue/60">Monto pagado</div>
           </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-          <div class="p-4 rounded-lg bg-white/5 border border-white/10 transition" [ngClass]="{ 'ring-2 ring-softblue': highlightId===r.reservation_id }" *ngFor="let r of g.items; let i = index">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-1">
-              <span class="text-white font-semibold flex items-center gap-2 text-sm sm:text-base">Reserva #{{ i+1 }} · Asiento {{ r.seat_code }}</span>
-              <div class="flex items-center gap-2 sm:gap-3">
-                <span class="text-emerald-400 font-semibold text-sm" *ngIf="r.total as t">Q {{ t | number:'1.0-0' }}</span>
-                <span class="text-xs text-softblue/70">{{ r.created_at | date:'short' }}</span>
+
+        <!-- Información del pasajero -->
+        <div class="neo-card bg-white/5 p-3 rounded-lg mb-3">
+          <div class="text-xs text-softblue/80 uppercase tracking-wide mb-2">Información del pasajero</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+            <div class="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-softblue flex-shrink-0">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a7.5 7.5 0 0115 0" />
+              </svg>
+              <div>
+                <div class="text-softblue/70 text-xs">Nombre</div>
+                <div class="text-white">{{ c.full_name }}</div>
               </div>
             </div>
-            <div class="text-softblue text-xs sm:text-sm">Pasajero: <span class="text-white">{{ r.full_name }}</span></div>
-            <div class="text-softblue text-xs sm:text-sm flex items-center gap-2 flex-wrap">Clase: <span class="text-white">{{ r.seat_class }}</span>
-              <span *ngIf="r.selection_mode === 'random'" class="px-2 py-0.5 rounded bg-white/10 text-softblue border border-white/10 text-[10px] uppercase tracking-wide">Aleatorio</span>
-            </div>
-            <div class="text-softblue text-xs sm:text-sm mb-3 flex items-center flex-wrap gap-2">CUI:
-              <span class="text-white flex items-center gap-1">
-                {{ r.cui }}
-                <button type="button" (click)="copy(r.cui)" class="p-1 rounded hover:bg-white/10" title="Copiar CUI">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 sm:w-5 sm:h-5 text-softblue">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 2.25h6a2.25 2.25 0 012.25 2.25v1.5M9 2.25A2.25 2.25 0 006.75 4.5v1.5M9 2.25h6M6.75 6h10.5m-12 3.75A2.25 2.25 0 017.5 7.5h9a2.25 2.25 0 012.25 2.25v9A2.25 2.25 0 0116.5 21H7.5a2.25 2.25 0 01-2.25-2.25v-9z" />
-                  </svg>
-                </button>
-              </span>
-              · Asiento:
-              <span class="text-white flex items-center gap-1">
-                {{ r.seat_code }}
-                <button type="button" (click)="copy(r.seat_code)" class="p-1 rounded hover:bg-white/10" title="Copiar asiento">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 sm:w-5 sm:h-5 text-softblue">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 2.25h6a2.25 2.25 0 012.25 2.25v1.5M9 2.25A2.25 2.25 0 006.75 4.5v1.5M9 2.25h6M6.75 6h10.5m-12 3.75A2.25 2.25 0 017.5 7.5h9a2.25 2.25 0 012.25 2.25v9A2.25 2.25 0 0116.5 21H7.5a2.25 2.25 0 01-2.25-2.25v-9z" />
-                  </svg>
-                </button>
-              </span>
-              · Maleta: <span class="text-white">{{ r.has_bag ? 'Sí' : 'No' }}</span>
-            </div>
-            <div class="flex flex-col sm:flex-row gap-2 justify-end">
-              <button class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg bg-softblue text-dark hover:opacity-90" (click)="openEdit(r)">Modificar</button>
-              <button class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg bg-red-500 text-white hover:bg-red-600" (click)="openCancel(r)">Cancelar</button>
+            <div class="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-softblue flex-shrink-0">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm-5.25 6.375a3.375 3.375 0 016.75 0v.003h-.004z" />
+              </svg>
+              <div>
+                <div class="text-softblue/70 text-xs">CUI</div>
+                <div class="text-white font-mono">{{ c.cui }}</div>
+              </div>
             </div>
           </div>
         </div>
-        <div class="flex justify-end mt-3">
-          <button *ngIf="!g.is_single" class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg bg-red-600 text-white hover:bg-red-700" (click)="openCancelBatch(g)">Cancelar conjunto</button>
+
+        <!-- Desglose financiero -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+          <div class="neo-card bg-white/5 p-3 rounded-lg">
+            <div class="text-xs text-softblue/70 mb-1">Base</div>
+            <div class="text-white font-semibold">{{ formatCurrency(c.price_base) }}</div>
+          </div>
+          <div class="neo-card bg-white/5 p-3 rounded-lg" *ngIf="c.discount > 0">
+            <div class="text-xs text-softblue/70 mb-1">Descuento VIP</div>
+            <div class="text-fuchsia-400 font-semibold">- {{ formatCurrency(c.discount) }}</div>
+          </div>
+          <div class="neo-card bg-white/5 p-3 rounded-lg">
+            <div class="text-xs text-softblue/70 mb-1">Equipaje</div>
+            <div class="text-white font-semibold">{{ c.has_bag ? 'Incluido' : 'No incluido' }}</div>
+          </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="flex items-center gap-2 text-xs text-softblue/60 border-t border-white/5 pt-3">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Creada: {{ formatDate(c.created_at) }}</span>
+          <span class="mx-1">→</span>
+          <span class="text-red-400">Cancelada: {{ formatDate(c.cancelled_at) }}</span>
+        </div>
+
+        <!-- Razón adicional si existe -->
+        <div *ngIf="c.action_reason" class="mt-3 p-2 rounded bg-white/5 border-l-2 border-amber-500/50">
+          <div class="text-xs text-amber-400/80 uppercase tracking-wide mb-1">Motivo</div>
+          <div class="text-sm text-white/90 italic">{{ c.action_reason }}</div>
         </div>
       </div>
     </div>
-    <ng-template #emptyActivas>
-      <div class="neo-card p-4 sm:p-6 text-softblue text-sm">Aún no tienes reservas activas.</div>
+    <ng-template #emptyCanceladas>
+      <div class="neo-card p-4 sm:p-6 text-softblue text-sm">No tienes reservas canceladas.</div>
     </ng-template>
-  </div>
-
-  <!-- Tab: Canceladas -->
-  <div class="space-y-4" *ngIf="activeTab === 'canceladas'">
-    <div *ngIf="cancelaciones.length === 0" class="neo-card p-4 sm:p-6 text-softblue text-sm">No tienes cancelaciones registradas.</div>
-
-    <div *ngFor="let c of cancelaciones" class="neo-card p-4 sm:p-5 border">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4 mb-3">
-        <div>
-          <div class="text-softblue/70 text-xs">Asiento</div>
-          <div class="text-red-300 font-semibold text-lg line-through">{{ c.seat_number }}</div>
-        </div>
-        <div>
-          <div class="text-softblue/70 text-xs">Pasajero</div>
-          <div class="text-white font-semibold">{{ c.passenger_name }}</div>
-        </div>
-        <div>
-          <div class="text-softblue/70 text-xs">Motivo</div>
-          <div class="text-softblue">{{ c.action_reason || 'Sin especificar' }}</div>
-        </div>
-        <div>
-          <div class="text-softblue/70 text-xs">Monto pagado</div>
-          <div class="text-red-300 font-semibold">{{ formatCurrency(c.total_price) }}</div>
-        </div>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 border-t border-white/10 pt-3 text-xs sm:text-sm text-softblue">
-        <div>Reservado: <span class="text-white">{{ formatDate(c.original_reservation_date) }}</span></div>
-        <div>Cancelado: <span class="text-white">{{ formatDate(c.cancelled_at) }}</span></div>
-        <div>Clase: <span class="text-white">{{ c.seat_class }}</span></div>
-      </div>
-    </div>
-
-    <div *ngIf="cancelaciones.length > 0" class="flex justify-center items-center gap-3 mt-4">
-      <button (click)="prevPage()" [disabled]="currentPage === 1" class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-white/10 text-softblue hover:bg-white/20 disabled:opacity-50">Anterior</button>
-      <span class="text-softblue text-xs">Pagina {{ currentPage }} de {{ Math.ceil(totalItems / itemsPerPage) }}</span>
-      <button (click)="nextPage()" [disabled]="currentPage * itemsPerPage >= totalItems" class="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg bg-white/10 text-softblue hover:bg-white/20 disabled:opacity-50">Siguiente</button>
+    
+    <!-- Paginación -->
+    <div *ngIf="totalItems > itemsPerPage" class="flex justify-center gap-3 mt-4">
+      <button 
+        (click)="prevPage()" 
+        [disabled]="currentPage === 1"
+        class="px-3 py-1.5 rounded-lg bg-white/10 text-softblue hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-sm">
+        Anterior
+      </button>
+      <span class="px-3 py-1.5 text-softblue text-sm">Página {{ currentPage }} de {{ Math.ceil(totalItems / itemsPerPage) }}</span>
+      <button 
+        (click)="nextPage()" 
+        [disabled]="currentPage * itemsPerPage >= totalItems"
+        class="px-3 py-1.5 rounded-lg bg-white/10 text-softblue hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-sm">
+        Siguiente
+      </button>
     </div>
   </div>
+
 
   <!-- Modal edición -->
   <div *ngIf="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 overflow-y-auto">

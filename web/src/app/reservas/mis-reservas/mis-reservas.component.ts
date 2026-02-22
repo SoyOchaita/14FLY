@@ -1,10 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReservasService } from '../reservas.service';
+import { AuditService } from '../audit.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../ui/toast/toast.service';
-import { AuditService } from '../audit.service';
 
 @Component({
   selector: 'app-mis-reservas',
@@ -15,12 +15,6 @@ import { AuditService } from '../audit.service';
 })
 export class MisReservasComponent implements OnInit {
   reservas: Array<{ reservation_id: number; seat_code: string; created_at: string; full_name: string; cui: string; has_bag: boolean; batch_id?: string | null; seat_class?: string; total?: number; price_base?: number; selection_mode?: 'manual' | 'random' | null }> = [];
-  cancelaciones: any[] = [];
-  activeTab: 'activas' | 'canceladas' = 'activas';
-  currentPage = 1;
-  itemsPerPage = 10;
-  totalItems = 0;
-  Math = Math;
   grupos: Array<{
     batch_id: string;
     real_batch_id: string | null;
@@ -58,24 +52,22 @@ export class MisReservasComponent implements OnInit {
   cancelBatchTarget: { batch_id: string; items: any[] } | null = null;
   confirmPhrase = '';
 
-  constructor(
-    private api: ReservasService,
-    private toast: ToastService,
-    private auditService: AuditService,
-    private route: ActivatedRoute,
-    public router: Router
-  ) {}
+  // Tabs y cancelaciones
+  activeTab: 'activas' | 'canceladas' = 'activas';
+  cancelaciones: any[] = [];
+  cancelacionesStats: any = null;
+  currentPage = 1;
+  itemsPerPage = 10;
+  totalItems = 0;
+  Math = Math;
+
+  constructor(private api: ReservasService, private auditService: AuditService, private toast: ToastService, private route: ActivatedRoute, public router: Router) {}
 
   ngOnInit(): void {
     this.route.queryParamMap.subscribe((params) => {
       const edit = params.get('edit');
       this.highlightId = edit ? Number(edit) : null;
     });
-    this.loadActivas();
-    this.loadCanceladas();
-  }
-
-  private loadActivas() {
     this.api.getMyReservations().subscribe({
       next: (res) => {
         this.reservas = res.data || [];
@@ -86,56 +78,6 @@ export class MisReservasComponent implements OnInit {
         this.toast.error(msg);
       }
     });
-  }
-
-  private loadCanceladas() {
-    const offset = (this.currentPage - 1) * this.itemsPerPage;
-    this.auditService.getCancellationHistory(this.itemsPerPage, offset).subscribe({
-      next: (res) => {
-        const data = res?.data || {};
-        this.cancelaciones = data.data || [];
-        this.totalItems = data.pagination?.total || 0;
-      },
-      error: () => {
-        this.cancelaciones = [];
-      }
-    });
-  }
-
-  changeTab(tab: 'activas' | 'canceladas') {
-    this.activeTab = tab;
-    if (tab === 'canceladas') this.loadCanceladas();
-  }
-
-  nextPage() {
-    if (this.currentPage * this.itemsPerPage < this.totalItems) {
-      this.currentPage++;
-      this.loadCanceladas();
-    }
-  }
-
-  prevPage() {
-    if (this.currentPage > 1) {
-      this.currentPage--;
-      this.loadCanceladas();
-    }
-  }
-
-  formatDate(date: string): string {
-    return new Date(date).toLocaleDateString('es-GT', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }
-
-  formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('es-GT', {
-      style: 'currency',
-      currency: 'GTQ'
-    }).format(amount);
   }
 
   private buildGroups() {
@@ -371,8 +313,16 @@ export class MisReservasComponent implements OnInit {
         this.isCancelling = false;
         this.toast.success('Reserva cancelada correctamente');
         this.closeCancel();
-        this.loadActivas();
-        this.loadCanceladas();
+        this.api.getMyReservations().subscribe({
+          next: (res) => { 
+            this.reservas = res.data || []; 
+            this.buildGroups(); 
+          },
+          error: (err) => {
+            this.toast.error('Error al recargar reservas');
+            console.error('Error al recargar:', err);
+          }
+        });
       },
       error: (err) => {
         this.isCancelling = false;
@@ -433,8 +383,17 @@ export class MisReservasComponent implements OnInit {
         this.closeCancelBatch();
         
         // SIEMPRE refrescar el listado para reflejar el estado real
-        this.loadActivas();
-        this.loadCanceladas();
+        this.api.getMyReservations().subscribe({
+          next: (res) => { 
+            this.reservas = res.data || []; 
+            this.buildGroups();
+            console.log('[CANCEL-BATCH] Listado actualizado:', this.grupos.length, 'grupos');
+          },
+          error: (err) => {
+            this.toast.error('Error al recargar reservas');
+            console.error('[CANCEL-BATCH] Error al recargar:', err);
+          }
+        });
       },
       error: (err) => {
         const msg = err?.error?.message || 'Error al cancelar conjunto';
@@ -442,5 +401,80 @@ export class MisReservasComponent implements OnInit {
         console.error('[CANCEL-BATCH] Error:', err);
       }
     });
+  }
+
+  // Tabs y cancelaciones
+  changeTab(tab: 'activas' | 'canceladas'): void {
+    this.activeTab = tab;
+    if (tab === 'canceladas') {
+      this.currentPage = 1; // Reset paginación
+      this.loadCanceladas();
+      this.loadStats();
+    }
+  }
+
+  loadStats(): void {
+    this.auditService.getCancellationStats().subscribe({
+      next: (res) => {
+        this.cancelacionesStats = res?.data || null;
+      },
+      error: (err) => {
+        console.error('Error cargando estadísticas:', err);
+      }
+    });
+  }
+
+  loadCanceladas(): void {
+    const offset = (this.currentPage - 1) * this.itemsPerPage;
+    this.auditService.getCancellationHistory(this.itemsPerPage, offset).subscribe({
+      next: (res) => {
+        const responseData = res?.data;
+        if (Array.isArray(responseData)) {
+          this.cancelaciones = responseData;
+          this.totalItems = responseData.length;
+        } else if (responseData && typeof responseData === 'object') {
+          this.cancelaciones = responseData.data || [];
+          this.totalItems = responseData.pagination?.total || 0;
+        } else {
+          this.cancelaciones = [];
+          this.totalItems = 0;
+        }
+      },
+      error: (err) => {
+        this.toast.error('Error al cargar cancelaciones');
+        console.error('Error cargando cancelaciones:', err);
+      }
+    });
+  }
+
+  nextPage(): void {
+    if (this.currentPage * this.itemsPerPage < this.totalItems) {
+      this.currentPage++;
+      this.loadCanceladas();
+    }
+  }
+
+  prevPage(): void {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.loadCanceladas();
+    }
+  }
+
+  formatDate(date: string): string {
+    return new Date(date).toLocaleDateString('es-GT', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('es-GT', {
+      style: 'currency',
+      currency: 'GTQ'
+    }).format(amount);
   }
 }

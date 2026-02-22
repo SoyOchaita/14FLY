@@ -63,15 +63,24 @@ export class AuditLog {
           ra.action,
           ra.action_reason,
           ra.cancelled_at,
-          s.seat_number,
+          s.seat_number AS seat_code,
           s.seat_class,
-          p.full_name AS passenger_name,
+          p.full_name,
           p.cui,
           r.price_base,
           r.discount,
-          r.total_price,
-          r.reservation_date AS original_reservation_date,
-          ra.details
+          r.total_price AS total,
+          r.has_luggage AS has_bag,
+          r.reservation_date AS created_at,
+          ra.details,
+          COALESCE(
+            (SELECT raa.selection_mode 
+             FROM reservation_activity raa 
+             WHERE raa.reservation_id = r.reservation_id 
+               AND raa.type = 'created' 
+             LIMIT 1),
+            'manual'
+          ) AS selection_mode
         FROM reservation_audit ra
         JOIN reservations r ON r.reservation_id = ra.reservation_id
         LEFT JOIN seats s ON s.seat_id = r.seat_id
