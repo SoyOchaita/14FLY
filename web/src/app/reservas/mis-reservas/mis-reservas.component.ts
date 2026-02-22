@@ -4,6 +4,7 @@ import { ReservasService } from '../reservas.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../ui/toast/toast.service';
+import { AuditService } from '../audit.service';
 
 @Component({
   selector: 'app-mis-reservas',
@@ -14,6 +15,12 @@ import { ToastService } from '../../ui/toast/toast.service';
 })
 export class MisReservasComponent implements OnInit {
   reservas: Array<{ reservation_id: number; seat_code: string; created_at: string; full_name: string; cui: string; has_bag: boolean; batch_id?: string | null; seat_class?: string; total?: number; price_base?: number; selection_mode?: 'manual' | 'random' | null }> = [];
+  cancelaciones: any[] = [];
+  activeTab: 'activas' | 'canceladas' = 'activas';
+  currentPage = 1;
+  itemsPerPage = 10;
+  totalItems = 0;
+  Math = Math;
   grupos: Array<{
     batch_id: string;
     real_batch_id: string | null;
@@ -51,13 +58,24 @@ export class MisReservasComponent implements OnInit {
   cancelBatchTarget: { batch_id: string; items: any[] } | null = null;
   confirmPhrase = '';
 
-  constructor(private api: ReservasService, private toast: ToastService, private route: ActivatedRoute, public router: Router) {}
+  constructor(
+    private api: ReservasService,
+    private toast: ToastService,
+    private auditService: AuditService,
+    private route: ActivatedRoute,
+    public router: Router
+  ) {}
 
   ngOnInit(): void {
     this.route.queryParamMap.subscribe((params) => {
       const edit = params.get('edit');
       this.highlightId = edit ? Number(edit) : null;
     });
+    this.loadActivas();
+    this.loadCanceladas();
+  }
+
+  private loadActivas() {
     this.api.getMyReservations().subscribe({
       next: (res) => {
         this.reservas = res.data || [];
@@ -68,6 +86,56 @@ export class MisReservasComponent implements OnInit {
         this.toast.error(msg);
       }
     });
+  }
+
+  private loadCanceladas() {
+    const offset = (this.currentPage - 1) * this.itemsPerPage;
+    this.auditService.getCancellationHistory(this.itemsPerPage, offset).subscribe({
+      next: (res) => {
+        const data = res?.data || {};
+        this.cancelaciones = data.data || [];
+        this.totalItems = data.pagination?.total || 0;
+      },
+      error: () => {
+        this.cancelaciones = [];
+      }
+    });
+  }
+
+  changeTab(tab: 'activas' | 'canceladas') {
+    this.activeTab = tab;
+    if (tab === 'canceladas') this.loadCanceladas();
+  }
+
+  nextPage() {
+    if (this.currentPage * this.itemsPerPage < this.totalItems) {
+      this.currentPage++;
+      this.loadCanceladas();
+    }
+  }
+
+  prevPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.loadCanceladas();
+    }
+  }
+
+  formatDate(date: string): string {
+    return new Date(date).toLocaleDateString('es-GT', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('es-GT', {
+      style: 'currency',
+      currency: 'GTQ'
+    }).format(amount);
   }
 
   private buildGroups() {
@@ -303,16 +371,8 @@ export class MisReservasComponent implements OnInit {
         this.isCancelling = false;
         this.toast.success('Reserva cancelada correctamente');
         this.closeCancel();
-        this.api.getMyReservations().subscribe({
-          next: (res) => { 
-            this.reservas = res.data || []; 
-            this.buildGroups(); 
-          },
-          error: (err) => {
-            this.toast.error('Error al recargar reservas');
-            console.error('Error al recargar:', err);
-          }
-        });
+        this.loadActivas();
+        this.loadCanceladas();
       },
       error: (err) => {
         this.isCancelling = false;
@@ -373,17 +433,8 @@ export class MisReservasComponent implements OnInit {
         this.closeCancelBatch();
         
         // SIEMPRE refrescar el listado para reflejar el estado real
-        this.api.getMyReservations().subscribe({
-          next: (res) => { 
-            this.reservas = res.data || []; 
-            this.buildGroups();
-            console.log('[CANCEL-BATCH] Listado actualizado:', this.grupos.length, 'grupos');
-          },
-          error: (err) => {
-            this.toast.error('Error al recargar reservas');
-            console.error('[CANCEL-BATCH] Error al recargar:', err);
-          }
-        });
+        this.loadActivas();
+        this.loadCanceladas();
       },
       error: (err) => {
         const msg = err?.error?.message || 'Error al cancelar conjunto';

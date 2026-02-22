@@ -384,18 +384,56 @@ export const updateReservation = async (req, res) => {
         const paxCuiClean = cui ? String(cui).replace(/[\s\-]/g, "") : null;
         const paxCuiChanged = paxCuiClean ? paxCuiClean !== prevPaxCui : (newPassengerId ? afterPaxCui !== prevPaxCui : false);
 
-        const updatedEmail = buildReservationUpdatedEmail({
-          name,
-          email,
-          changesTableRows,
-          base,
-          seatChanged,
-          feeAdded,
-          newFee,
-          discount,
-          total,
-          discountAdded
-        });
+          const changes = [];
+          if (seatChanged) {
+            changes.push(`
+              <tr>
+                <td style="padding:8px 12px;color:#93c5fd">Asiento</td>
+                <td style="padding:8px 12px">${prevSeatNumber}</td>
+                <td style="padding:8px 12px;text-align:right">${afterSeatText}</td>
+              </tr>
+            `);
+          }
+          if (paxNameChanged) {
+            changes.push(`
+              <tr>
+                <td style="padding:8px 12px;color:#93c5fd">Pasajero</td>
+                <td style="padding:8px 12px">${prevPaxName || '—'}</td>
+                <td style="padding:8px 12px;text-align:right">${afterPaxName || '—'}</td>
+              </tr>
+            `);
+          }
+          if (paxCuiChanged) {
+            changes.push(`
+              <tr>
+                <td style="padding:8px 12px;color:#93c5fd">CUI</td>
+                <td style="padding:8px 12px">${prevPaxCui || '—'}</td>
+                <td style="padding:8px 12px;text-align:right">${afterPaxCui || '—'}</td>
+              </tr>
+            `);
+          }
+          if (luggageChanged) {
+            changes.push(`
+              <tr>
+                <td style="padding:8px 12px;color:#93c5fd">Maleta</td>
+                <td style="padding:8px 12px">${prev.has_luggage ? 'Si' : 'No'}</td>
+                <td style="padding:8px 12px;text-align:right">${has_luggage ? 'Si' : 'No'}</td>
+              </tr>
+            `);
+          }
+          const changesTableRows = changes.length ? changes.join('') : '';
+          const updatedEmail = buildReservationUpdatedEmail({
+            name,
+            email,
+            changesTableRows,
+            base,
+            seatChanged,
+            feeAdded,
+            newFee,
+            discount,
+            total,
+            discountAdded
+          });
         sendMail({ to: email, subject: updatedEmail.subject, html: updatedEmail.html, text: updatedEmail.text })
           .catch(e => console.warn('Fallo al enviar correo de modificación:', e.message));
       }
